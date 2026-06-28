@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find . -maxdepth 2 -name *.toml -o -name *.txt -o -name setup.py -o -name setup.cfg -o -name pyproject.toml)",
+      "Bash(uv sync:*)",
+      "Bash(python -c \"import sys; sys.path.insert\\(0, ''.''\\); from app.services.knowledge import KnowledgeBase; print\\(''Import successful''\\)\")",
+      "Bash(.venv/Scripts/python -c \"import sys; sys.path.insert\\(0, ''.''\\); from app.services.knowledge import KnowledgeBase; print\\(''Import successful''\\)\")",
+      "Bash(.venv/Scripts/python -c \":*)",
+      "Bash(dir \"e:\\\\01Code\\\\01Gitee\\\\chain-engine\\\\x-XiChuang\\\\server\\\\app\")",
+      "Bash(find . -type d -name __pycache__ -not -path ./server/.venv/*)",
+      "Bash(find . -type d -name \"__pycache__\" -exec rm -rf {} +)"
+    ]
+  }
+}

@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: xichuang-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-xichuang123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-xichuang}
+      MYSQL_USER: ${MYSQL_USER:-xichuang}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-xichuang123}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/mysql-init:/docker-entrypoint-initdb.d
+    networks:
+      - xichuang-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD:-xichuang123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Milvus 向量数据库 (standalone 模式)
+  milvus:
+    image: milvusdb/milvus:latest
+    container_name: xichuang-milvus
+    restart: unless-stopped
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    ports:
+      - "${MILVUS_PORT:-19530}:19530"
+    volumes:
+      - milvus_data:/var/lib/milvus
+    networks:
+      - xichuang-network
+    depends_on:
+      - etcd
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Milvus 依赖: etcd
+  etcd:
+    image: quay.io/coreos/etcd:latest
+    container_name: xichuang-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - etcd_data:/etcd
+    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls=http://0.0.0.0:2379 --data-dir /etcd
+    networks:
+      - xichuang-network
+
+  # Milvus 依赖: minio
+  minio:
+    image: minio/minio:latest
+    container_name: xichuang-minio
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    volumes:
+      - minio_data:/data
+    command: minio server /data --console-address ":9001"
+    networks:
+      - xichuang-network
+
+  # 西窗主应用
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: xichuang-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      # 数据库配置
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-xichuang}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-xichuang123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-xichuang}
+
+      # Milvus 配置
+      MILVUS_HOST: milvus
+      MILVUS_PORT: 19530
+
+      # 模型配置（通过环境变量传入）
+      ALIYUN_API_KEY: ${ALIYUN_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      GLM_API_KEY: ${GLM_API_KEY:-}
+      DOUBAO_API_KEY: ${DOUBAO_API_KEY:-}
+      KIMI_API_KEY: ${KIMI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+      # 其他配置
+      DEBUG: ${DEBUG:-False}
+      TEMPERATURE: ${TEMPERATURE:-0}
+      STORAGE_TYPE: ${STORAGE_TYPE:-local}
+    volumes:
+      # 挂载本地存储目录（用于文件上传）
+      - ./server/statics:/app/statics
+      - ./logs:/app/logs
+      # 挂载配置文件（可选）
+      - ./server/.env:/app/.env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      milvus:
+        condition: service_started
+    networks:
+      - xichuang-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # 开发模式启用热重载
+    # command: ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+networks:
+  xichuang-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  milvus_data:
+  etcd_data:
+  minio_data:
