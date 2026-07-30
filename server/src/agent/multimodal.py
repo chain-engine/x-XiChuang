@@ -42,7 +42,7 @@ warnings.filterwarnings(
 
 from pydub import AudioSegment
 
-from src.config.settings import Settings, settings
+from src.core.config import Settings, settings
 from src.core.logger import logger
 
 if TYPE_CHECKING:

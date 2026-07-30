@@ -1,4 +1,4 @@
-<h1>西窗 <em>XiChuang</em></h1>
+# 西窗 XiChuang
 
 > 在西窗下，与你对话
 
@@ -16,7 +16,7 @@
 
 ## 项目简介
 
-**西窗（XiChuang）** 是一款生产级多模态智能交互助手，基于 LangChain + LangGraph + FastAPI 构建现代化 AI 对话系统。
+**西窗（XiChuang）** 是一款基于 LangChain + LangGraph + FastAPI 构建的多模态智能交互助手。
 
 - **项目定位**：企业级多模态 AI 助手解决方案，支持文本、语音、图片、视频等多种交互方式
 - **核心价值**：开箱即用的多模型切换、智能会话记忆、RAG 知识库检索，无需从零搭建
@@ -28,137 +28,278 @@
 
 - **多模态输入** - 支持文本对话、语音录制、图片/音频/视频文件上传
 - **多模型支持** - 内置千问、DeepSeek、GLM、豆包、Kimi 等主流模型，支持动态切换
-- **智能对话** - 会话记忆持久化、上下文自动修剪、长对话自动摘要
+- **LangGraph 编排** - 基于状态图的对话流程：检索 → 生成 → 摘要
+- **智能对话** - 会话记忆持久化、上下文自动修剪、滚动摘要生成
 - **知识库检索** - 基于 Milvus 的 RAG 检索增强，支持文档向量化与语义搜索
-- **数据管理** - 提供 Milvus 数据查询、状态诊断、知识库重建 API
-- **生产就绪** - Docker Compose 一键部署，MySQL 会话持久化，OSS 云存储支持
+- **数据管理** - 提供 Milvus 数据查询、状态诊断，知识库重建 API
+- **存储灵活** - 本地存储或阿里云 OSS 云存储
+- **Docker 部署** - Docker Compose 一键部署 MySQL + Milvus + 应用
 
 ---
 
 ## 项目结构
 
 ```
-xichuang/
+x-XiChuang/
 │
-├── server/                          # 后端服务
-│   ├── src/                         # 源代码目录
-│   │   ├── main.py                  # FastAPI 入口
-│   │   ├── app/                     # 应用层
-│   │   │   ├── main.py              # 应用工厂
-│   │   │   ├── routers/             # 路由层
-│   │   │   │   ├── chat.py          # 聊天 API
-│   │   │   │   ├── conversations.py # 会话管理 API
-│   │   │   │   └── milvus.py        # Milvus 管理 API
-│   │   │   └── services/            # 服务层
-│   │   │       ├── chat_service.py  # 聊天服务
-│   │   │       └── milvus_service.py# Milvus 服务
+├── server/                         # 后端服务
+│   ├── src/                        # 源代码目录
+│   │   ├── main.py                # FastAPI 入口
 │   │   │
-│   │   ├── agent/                   # 智能体模块
-│   │   │   ├── model.py             # 模型路由
-│   │   │   ├── multimodal.py        # 多模态处理
-│   │   │   ├── memory.py            # 会话记忆
-│   │   │   ├── knowledge.py         # 知识库检索
-│   │   │   └── media.py             # 媒体数据处理
+│   │   ├── core/                  # 核心层
+│   │   │   ├── config.py          # 配置管理
+│   │   │   ├── logger.py          # 日志封装
+│   │   │   ├── exceptions.py      # 异常定义
+│   │   │   ├── middleware.py      # 中间件
+│   │   │   └── response.py        # 统一响应
 │   │   │
-│   │   ├── infra/                   # 基础设施层
-│   │   │   ├── storage.py           # 文件存储（本地/OSS）
-│   │   │   ├── milvus.py            # Milvus 连接
-│   │   │   └── mysql/               # MySQL 数据库
-│   │   │       ├── mysql.py         # 数据库连接
-│   │   │       └── models.py        # ORM 模型
+│   │   ├── constants/             # 常量层
+│   │   │   ├── enums.py           # 业务枚举
+│   │   │   └── codes.py           # 状态码
 │   │   │
-│   │   ├── config/                  # 配置层
-│   │   │   └── settings.py          # 环境配置
+│   │   ├── schemas/               # Schema 层
+│   │   │   ├── common.py          # 通用模型
+│   │   │   ├── chat.py            # 对话模型
+│   │   │   ├── conversation.py   # 会话模型
+│   │   │   └── milvus.py          # Milvus 模型
 │   │   │
-│   │   ├── core/                    # 核心层
-│   │   │   └── logger.py            # 日志封装
+│   │   ├── repositories/          # 数据访问层
+│   │   │   ├── base.py            # 仓储基类
+│   │   │   └── conversation.py    # 会话仓储
 │   │   │
-│   │   └── utils/                   # 工具层
-│   │       ├── file_util.py         # 文件工具
-│   │       ├── text_util.py         # 文本工具
-│   │       └── ...                  # 其他工具
+│   │   ├── services/              # 业务逻辑层
+│   │   │   ├── chat_service.py    # 对话服务
+│   │   │   ├── conversation_service.py
+│   │   │   └── milvus_service.py
+│   │   │
+│   │   ├── api/                   # API 路由层
+│   │   │   ├── route.py           # 路由聚合
+│   │   │   └── v1/
+│   │   │       ├── health.py      # 健康检查
+│   │   │       ├── chat.py        # 聊天 API
+│   │   │       ├── conversations.py
+│   │   │       └── milvus.py
+│   │   │
+│   │   ├── agent/                 # AI 智能体
+│   │   │   ├── model.py           # 模型路由
+│   │   │   ├── multimodal.py      # 多模态处理
+│   │   │   ├── memory.py          # 会话记忆
+│   │   │   └── knowledge.py       # 知识库检索
+│   │   │
+│   │   ├── infras/                # 基础设施
+│   │   │   ├── milvus.py          # Milvus 客户端
+│   │   │   ├── storage.py         # 文件存储
+│   │   │   └── mysql/
+│   │   │       ├── mysql.py       # 数据库连接
+│   │   │       └── models.py      # ORM 模型
+│   │   │
+│   │   └── routes/                # 路由层（备用）
+│   │       └── v1/...
 │   │
-│   ├── statics/                     # 静态资源目录
-│   │   ├── images/                  # 图片文件
-│   │   ├── audio/                   # 音频文件
-│   │   ├── videos/                  # 视频文件
-│   │   └── files/                   # 其他文件
-│   │
-│   ├── tests/                       # 测试目录
-│   ├── logs/                        # 日志目录
-│   ├── .env                         # 环境变量配置
-│   ├── .env.example                 # 环境变量示例
-│   └── pyproject.toml               # 项目配置
+│   ├── statics/                    # 静态资源
+│   ├── tests/                      # 测试
+│   ├── logs/                       # 日志
+│   ├── .env.example               # 环境变量模板
+│   └── pyproject.toml
 │
-├── web/                             # 前端页面（Vue3）
-│   ├── index.html                   # Vite 入口
-│   ├── package.json                 # 前端依赖
-│   ├── vite.config.js               # Vite 配置
+├── web/                            # 前端（Vue3）
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
 │   └── src/
-│       ├── main.js                  # Vue 入口
-│       ├── App.vue                  # 根组件
-│       ├── components/              # 组件
-│       │   ├── Sidebar.vue          # 侧边栏
-│       │   ├── ChatPanel.vue        # 聊天面板
-│       │   ├── MessageList.vue      # 消息列表
-│       │   ├── MessageItem.vue      # 消息项
-│       │   └── InputArea.vue        # 输入区域
-│       ├── composables/             # 组合式函数
-│       │   ├── useChat.js           # 聊天逻辑
-│       │   └── useRecorder.js       # 录音逻辑
-│       ├── services/                # 服务
-│       │   └── api.js               # API 客户端
-│       └── styles/                  # 样式
-│           └── variables.css        # CSS 变量
+│       ├── main.js
+│       ├── App.vue
+│       ├── components/
+│       │   ├── ChatPanel.vue
+│       │   ├── InputArea.vue
+│       │   ├── MessageItem.vue
+│       │   ├── MessageList.vue
+│       │   └── Sidebar.vue
+│       ├── composables/
+│       │   ├── useChat.js
+│       │   └── useRecorder.js
+│       └── services/
+│           └── api.js
 │
-├── data/                            # 数据目录
+├── data/                           # 数据目录
 │   └── knowledge/                   # 知识库文档
 │
-├── scripts/                         # 脚本目录
-│   └── mysql-init/                  # MySQL 初始化脚本
+├── scripts/                         # 脚本
+│   └── mysql-init/                  # MySQL 初始化
 │
-├── docker-compose.yml               # Docker Compose 配置
-├── Dockerfile                       # Docker 镜像构建
-├── LICENSE                          # 许可证
-└── README.md                        # 项目文档
+├── docker-compose.yml               # Docker 编排
+├── Dockerfile
+├── LICENSE
+└── README.md
 ```
 
 ---
 
 ## 系统架构
 
-### 系统分层架构
+### 模块依赖图
+
+```mermaid
+graph LR
+    subgraph API["API 层"]
+        ROUTE["route.py<br/>路由聚合"]
+        HEALTH["health.py<br/>健康检查"]
+        CHAT_API["chat.py<br/>聊天"]
+        CONV_API["conversations.py<br/>会话"]
+        MILVUS_API["milvus.py<br/>Milvus"]
+    end
+
+    subgraph SCHEMAS["Schema 层"]
+        COMMON["common.py<br/>通用模型"]
+        CHAT_SCHEMA["chat.py<br/>对话模型"]
+        CONV_SCHEMA["conversation.py<br/>会话模型"]
+        MILVUS_SCHEMA["milvus.py<br/>Milvus模型"]
+    end
+
+    subgraph SERVICES["服务层"]
+        CHAT_SVC["chat_service.py<br/>对话服务"]
+        CONV_SVC["conversation_service.py<br/>会话服务"]
+        MILVUS_SVC["milvus_service.py<br/>Milvus服务"]
+    end
+
+    subgraph AGENT["Agent 层"]
+        MODEL["model.py<br/>模型路由"]
+        MULTIMODAL["multimodal.py<br/>多模态"]
+        MEMORY["memory.py<br/>会话记忆"]
+        KNOWLEDGE["knowledge.py<br/>知识库"]
+    end
+
+    subgraph REPOS["仓储层"]
+        CONV_REPO["conversation.py<br/>会话仓储"]
+    end
+
+    subgraph INFRAS["基础设施层"]
+        MILVUS_INFRA["milvus.py<br/>Milvus客户端"]
+        MYSQL_INFRA["mysql/<br/>数据库"]
+        STORAGE_INFRA["storage.py<br/>文件存储"]
+    end
+
+    subgraph CORE["核心层"]
+        CONFIG["config.py<br/>配置管理"]
+        LOGGER["logger.py<br/>日志"]
+        EXCEPTIONS["exceptions.py<br/>异常"]
+        MIDDLEWARE["middleware.py<br/>中间件"]
+        RESPONSE["response.py<br/>响应"]
+    end
+
+    subgraph DB["外部服务"]
+        MILVUS[(Milvus)]
+        MYSQL[(MySQL)]
+        OSS[(OSS)]
+    end
+
+    subgraph LLM["模型层"]
+        TONGYI["通义千问"]
+        DEEPSEEK["DeepSeek"]
+        GLM["GLM"]
+        DOUBAO["豆包"]
+        KIMI["Kimi"]
+    end
+
+    %% API 层依赖
+    ROUTE --> HEALTH
+    ROUTE --> CHAT_API
+    ROUTE --> CONV_API
+    ROUTE --> MILVUS_API
+
+    CHAT_API --> CHAT_SCHEMA
+    CONV_API --> CONV_SCHEMA
+    MILVUS_API --> MILVUS_SCHEMA
+
+    CHAT_API --> CHAT_SVC
+    CONV_API --> CONV_SVC
+    MILVUS_API --> MILVUS_SVC
+
+    %% 服务层依赖
+    CHAT_SVC --> SCHEMAS
+    CHAT_SVC --> AGENT
+    CHAT_SVC --> LOGGER
+
+    CONV_SVC --> CONV_REPO
+    CONV_SVC --> LOGGER
+
+    MILVUS_SVC --> MILVUS_INFRA
+    MILVUS_SVC --> LOGGER
+
+    %% Agent 层依赖
+    MODEL --> CONFIG
+    MODEL --> LOGGER
+
+    MULTIMODAL --> MODEL
+    MULTIMODAL --> CONFIG
+    MULTIMODAL --> LOGGER
+
+    MEMORY --> MODEL
+    MEMORY --> CONFIG
+    MEMORY --> LOGGER
+
+    KNOWLEDGE --> CONFIG
+    KNOWLEDGE --> LOGGER
+
+    %% 仓储层依赖
+    CONV_REPO --> MYSQL_INFRA
+    CONV_REPO --> LOGGER
+
+    %% 基础设施层
+    MILVUS_INFRA --> LOGGER
+    MYSQL_INFRA --> LOGGER
+    STORAGE_INFRA --> LOGGER
+
+    %% Agent 到外部服务
+    MULTIMODAL --> LLM
+    KNOWLEDGE --> MILVUS
+
+    %% 基础设施到外部服务
+    MILVUS_INFRA --> MILVUS
+    MYSQL_INFRA --> MYSQL
+    STORAGE_INFRA --> OSS
+```
+
+### 架构分层
 
 ```mermaid
 graph TB
-    subgraph P[表现层]
-        WEB[Web浏览器]
-        API_CLIENT[API客户端]
+    subgraph P[前端]
+        WEB[Vue3 SPA]
     end
 
     subgraph A[接入层]
-        GATEWAY[FastAPI网关]
-        STATIC[静态资源]
+        FASTAPI[FastAPI Gateway]
+        MIDDLEWARE[中间件]
     end
 
-    subgraph APP[应用层]
-        ROUTER[路由层]
-        SERVICE[服务编排]
+    subgraph API[API 层]
+        HEALTH[健康检查]
+        CHAT[聊天路由]
+        CONV[会话路由]
+        MILVUS[Milvus路由]
     end
 
-    subgraph AGENT[智能体层]
-        MEMORY[会话记忆]
+    subgraph SVC[服务层]
+        CHAT_SVC[ChatService<br/>LangGraph编排]
+        CONV_SVC[ConversationService]
+        MILVUS_SVC[MilvusService]
+    end
+
+    subgraph AGENT[Agent 层]
         MULTIMODAL[多模态处理]
+        MEMORY[会话记忆]
+        KNOWLEDGE[RAG检索]
         MODEL[模型路由]
-        KNOWLEDGE[知识库]
     end
 
     subgraph INFRA[基础设施层]
-        STORAGE[文件存储]
-        MILVUS_API[Milvus管理API]
+        MYSQL[(MySQL)]
+        MILVUS[(Milvus)]
+        STORAGE[本地/OSS]
     end
 
-    subgraph M[模型层]
+    subgraph LLM[模型层]
         TONGYI[通义千问]
         DEEPSEEK[DeepSeek]
         GLM[智谱GLM]
@@ -166,29 +307,17 @@ graph TB
         KIMI[Kimi]
     end
 
-    subgraph D[数据层]
-        MILVUS[(Milvus向量库)]
-        MYSQL[(MySQL数据库)]
-        LOCAL[(本地存储)]
-        OSS[(阿里云OSS)]
-    end
-
-    WEB --> GATEWAY
-    API_CLIENT --> GATEWAY
-    GATEWAY --> STATIC
-    GATEWAY --> ROUTER
-    ROUTER --> SERVICE
-    SERVICE --> AGENT
-    AGENT --> M
+    WEB --> FASTAPI
+    FASTAPI --> MIDDLEWARE
+    MIDDLEWARE --> API
+    API --> SVC
+    SVC --> AGENT
+    AGENT --> LLM
+    SVC --> INFRA
     AGENT --> INFRA
-    INFRA --> D
-    KNOWLEDGE --> MILVUS
-    MEMORY --> MYSQL
-    STORAGE --> LOCAL
-    STORAGE --> OSS
 ```
 
-### 核心业务流程
+### 对话流程
 
 ```mermaid
 flowchart TD
@@ -203,7 +332,8 @@ flowchart TD
     E --> G
     G --> H[上下文修剪]
     H --> I[生成摘要]
-    I --> J[返回响应]
+    I --> J[会话存储]
+    J --> K[返回响应]
 ```
 
 ---
@@ -214,16 +344,11 @@ flowchart TD
 
 | 环境 | 要求 |
 |------|------|
-| **Windows** | Python 3.11、Node.js 18+、MySQL 8.0（可选）、Milvus（可选） |
-| **Linux** | Python 3.11、Node.js 18+、MySQL 8.0（可选）、Milvus（可选） |
-| **Docker** | Docker 20.10+、Docker Compose 2.0+ |
-
-### 项目克隆
-
-```bash
-git clone https://gitee.com/chain-engine/x-XiChuang.git
-cd x-XiChuang
-```
+| **Python** | 3.11+ |
+| **Node.js** | 18+ |
+| **MySQL** | 8.0+ (可选) |
+| **Milvus** | 2.x (可选) |
+| **Docker** | 20.10+ (可选) |
 
 ### 依赖安装
 
@@ -236,12 +361,8 @@ pip install uv
 # 创建虚拟环境并安装依赖
 cd server
 uv venv
-
-# 激活虚拟环境
-# Windows:
-.venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate   # Windows
 
 # 同步依赖
 uv sync
@@ -250,11 +371,11 @@ uv sync
 **前端依赖**
 
 ```bash
-cd web
+cd ../web
 npm install
 ```
 
-### 配置文件创建
+### 配置文件
 
 ```bash
 # 复制环境变量模板
@@ -270,10 +391,9 @@ cp server/.env.example server/.env
 | `GLM_API_KEY` | 智谱 GLM API Key | 可选 |
 | `DOUBAO_API_KEY` | 火山豆包 API Key | 可选 |
 | `KIMI_API_KEY` | Kimi API Key | 可选 |
-| `OPENAI_API_KEY` | OpenAI API Key（语音转文字） | 可选 |
-| `MYSQL_HOST` | MySQL 主机地址 | Docker 必填 |
-| `MYSQL_PASSWORD` | MySQL 密码 | Docker 必填 |
-| `MILVUS_HOST` | Milvus 主机地址 | 可选 |
+| `OPENAI_API_KEY` | OpenAI API Key（Whisper） | 可选 |
+| `MYSQL_*` | MySQL 连接配置 | Docker 必填 |
+| `MILVUS_*` | Milvus 连接配置 | 可选 |
 
 ### 服务启动
 
@@ -282,41 +402,37 @@ cp server/.env.example server/.env
 ```bash
 # 1. 配置环境变量
 cp server/.env.example .env
-# 编辑 .env 文件，配置 API Key
+# 编辑 .env 文件
 
-# 2. 启动所有服务（MySQL + Milvus + 应用）
+# 2. 启动所有服务
 docker-compose up -d
 
 # 3. 查看日志
 docker-compose logs -f app
 
 # 4. 访问应用
-# 前端界面：http://localhost:8000
+# 前端：http://localhost:8000
 # API 文档：http://localhost:8000/docs
 ```
 
-#### 方式二：本地开发启动
+#### 方式二：本地开发
 
 ```bash
-# 终端 1：启动后端
+# 终端 1：后端
 cd server
-uv run uvicorn src.app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
-# 终端 2：启动前端开发服务器
+# 终端 2：前端
 cd web
 npm run dev
 ```
 
-访问地址：
-- 前端开发服务器：http://localhost:5173
-- 后端 API：http://localhost:8000
-- API 文档：http://localhost:8000/docs
-
 ### 常用命令
 
 ```bash
-# 运行测试
 cd server
+
+# 运行测试
 uv run pytest
 
 # 代码格式化
@@ -337,11 +453,11 @@ uv run mypy .
 
 | 类别 | 技术 | 版本 | 说明 |
 |------|------|------|------|
-| 编程语言 | Python | 3.11 | 核心开发语言 |
-| Web 框架 | FastAPI | 0.111+ | 高性能异步 API |
-| ASGI 服务器 | Uvicorn | - | 生产级服务器 |
+| 语言 | Python | 3.11 | 核心开发语言 |
+| 框架 | FastAPI | 0.111+ | 高性能异步 API |
+| 服务器 | Uvicorn | - | ASGI 服务器 |
 | LLM 编排 | LangChain | 0.3+ | 大模型框架 |
-| 流程编排 | LangGraph | 0.1+ | 对话流程图 |
+| 流程编排 | LangGraph | 0.1+ | 状态图编排 |
 | 数据校验 | Pydantic | v2 | 请求/响应模型 |
 | 音频处理 | pydub | - | 格式转换 |
 | 语音识别 | Whisper | - | OpenAI STT |
@@ -354,17 +470,17 @@ uv run mypy .
 | 类别 | 技术 | 版本 | 说明 |
 |------|------|------|------|
 | 框架 | Vue | 3.4 | 渐进式 JavaScript 框架 |
-| 构建工具 | Vite | 5.0 | 下一代前端构建工具 |
-| 页面结构 | HTML5 | - | 语义化标签 |
-| 样式 | CSS3 | - | CSS 变量 + Flexbox 响应式 |
-| 录音 | MediaRecorder API | - | 浏览器录音 |
+| 构建 | Vite | 5.0 | 下一代前端构建工具 |
+| Markdown | marked | 12.0 | 消息渲染 |
+| 代码高亮 | highlight.js | 11.10 | 代码块渲染 |
+| 录音 | MediaRecorder | - | 浏览器录音 API |
 
 ### AI 模型
 
-| 类别 | 提供商 | 模型示例 | 用途 |
-|------|--------|----------|------|
-| 文本对话 | 千问 | qwen-plus-latest | 通用对话（默认） |
-| 多模态 | 千问 | qwen-vl-plus | 图/音/视频理解 |
+| 类别 | 提供商 | 模型 | 用途 |
+|------|--------|------|------|
+| 文本对话 | 千问 | qwen-plus | 通用对话（默认） |
+| 多模态 | 千问 | qwen-vl-plus | 图片/视频理解 |
 | 文本对话 | DeepSeek | deepseek-chat | 通用对话 |
 | 文本对话 | GLM | glm-4 | 通用对话 |
 | 文本对话 | 豆包 | doubao-pro | 通用对话 |
@@ -372,92 +488,37 @@ uv run mypy .
 | 语音转文字 | OpenAI | whisper-1 | ASR |
 | 向量嵌入 | 千问 | text-embedding-v1 | 知识库 |
 
-### 部署工具
-
-| 类别 | 技术 | 说明 |
-|------|------|------|
-| 容器化 | Docker | 应用容器化 |
-| 编排 | Docker Compose | 多服务编排 |
-| 存储 | 阿里云 OSS | 云存储（可选） |
-
----
-
-## 模型配置
-
-| 提供商 | 环境变量 | 模型示例 | 说明 |
-|--------|----------|----------|------|
-| 千问 | `ALIYUN_API_KEY` | qwen-plus-latest | 默认推荐 |
-| DeepSeek | `DEEPSEEK_API_KEY` | deepseek-chat | 性价比高 |
-| GLM | `GLM_API_KEY` | glm-4 | 智谱AI |
-| 豆包 | `DOUBAO_API_KEY` | 需配置模型ID | 火山引擎 |
-| Kimi | `KIMI_API_KEY` | moonshot-v1-8k | 月之暗面 |
-
-详细配置参考 [server/.env.example](server/.env.example)
-
 ---
 
 ## API 文档
 
-### Swagger 交互式文档
+### 交互式文档
 
-启动后端服务后，可通过以下地址访问 API 文档：
+启动后端后访问：
 
-| 文档类型 | 地址 | 说明 |
-|----------|------|------|
-| Swagger UI | http://localhost:8000/docs | 交互式 API 文档，可直接测试接口 |
-| ReDoc | http://localhost:8000/redoc | 只读 API 文档，更美观 |
-| OpenAPI JSON | http://localhost:8000/openapi.json | OpenAPI Schema |
+| 文档 | 地址 |
+|------|------|
+| Swagger UI | http://localhost:8000/docs |
+| ReDoc | http://localhost:8000/redoc |
+| OpenAPI JSON | http://localhost:8000/openapi.json |
 
-### 聊天接口
-
-**发送消息**
-
-```bash
-POST /api/chat/message
-Content-Type: application/json
-
-{
-  "session_id": "test",
-  "query": "你好",
-  "provider": "tongyi"
-}
-```
-
-**上传文件**
-
-```bash
-POST /api/chat/upload
-Content-Type: multipart/form-data
-
-session_id: test
-query: 描述这个图片
-media_type: image
-file: [文件]
-```
-
-**获取可用模型**
-
-```bash
-GET /api/chat/providers
-
-Response:
-{
-  "providers": [
-    {"name": "tongyi", "display_name": "千问", "available": true},
-    {"name": "deepseek", "display_name": "DeepSeek", "available": true}
-  ],
-  "default": "tongyi"
-}
-```
-
-### Milvus 管理接口
+### 核心接口
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `/api/milvus/stats` | GET | 获取统计信息 |
-| `/api/milvus/collections` | GET | 列出集合 |
-| `/api/milvus/search` | POST | 查询数据 |
-| `/api/milvus/knowledge-status` | GET | 知识库诊断 |
+| `/api/health` | GET | 健康检查 |
+| `/api/health/live` | GET | 存活探针 |
+| `/api/health/ready` | GET | 就绪探针 |
+| `/api/version` | GET | 版本信息 |
+| `/api/chat/message` | POST | 标准对话 |
+| `/api/chat/stream` | POST | 流式对话 |
+| `/api/chat/upload` | POST | 文件上传对话 |
+| `/api/chat/providers` | GET | 可用模型列表 |
+| `/api/conversations` | GET/POST | 会话列表/创建 |
+| `/api/conversations/{id}` | GET/PUT/DELETE | 会话操作 |
+| `/api/milvus/stats` | GET | Milvus 统计 |
+| `/api/milvus/collections` | GET | 集合列表 |
+| `/api/milvus/search` | POST | 向量搜索 |
 | `/api/milvus/rebuild-knowledge` | POST | 重建知识库 |
 
 ---
@@ -466,16 +527,14 @@ Response:
 
 ### 本地存储（默认）
 
-文件保存在 `server/statics/` 目录下：
+文件保存在 `server/statics/` 目录：
 
 - `images/` - 图片
 - `audio/` - 音频
-- `videos/` - 视频和录音
+- `videos/` - 视频
 - `files/` - 其他文件
 
 ### 阿里云 OSS
-
-配置以下环境变量启用：
 
 ```bash
 STORAGE_TYPE=oss
@@ -500,6 +559,12 @@ ALIYUN_OSS_BUCKET_NAME=your-bucket
 
 ---
 
+## 贡献指南
+
+欢迎提交 Issue 和 Pull Request！
+
+---
+
 ## 许可证
 
 本项目采用 [MIT License](LICENSE) 开源协议。
@@ -509,16 +574,17 @@ ALIYUN_OSS_BUCKET_NAME=your-bucket
 ## 参考资料
 
 - [FastAPI 官方文档](https://fastapi.tiangolo.com/)
-- [Python 官方文档](https://docs.python.org/3.11/)
-- [uv 官方文档](https://docs.astral.sh/uv/)
 - [LangChain 官方文档](https://python.langchain.com/)
 - [LangGraph 官方文档](https://langchain-ai.github.io/langgraph/)
 - [Vue 3 官方文档](https://vuejs.org/)
 - [Milvus 官方文档](https://milvus.io/docs)
+- [uv 官方文档](https://docs.astral.sh/uv/)
 
 ---
 
 ## 联系方式
 
-**作者**：John Young  
+**作者**：John Young（夜雨诗来）
 **邮箱**：john.young@foxmail.com
+**Gitee**：https://gitee.com/yeyushilai
+**GitHub**：https://github.com/yeyushilai

@@ -15,7 +15,7 @@ from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_community.vectorstores.milvus import Milvus
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from src.config.settings import settings
+from src.core.config import settings
 from src.core.logger import logger
 
 # 通义 text-embedding-v1：单次文本长度需在 [1, 2048]（按字符/Token 限制，取保守字符上限）

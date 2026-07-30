@@ -11,7 +11,7 @@ from typing import Dict, List
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 
-from src.config.settings import settings
+from src.core.config import settings
 from src.core.logger import logger
 from src.agent.model import build_chat_model
 

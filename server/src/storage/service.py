@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import uuid
 from abc import ABC, abstractmethod
@@ -74,7 +73,6 @@ class LocalStorage(StorageBackend):
 
     def _get_category_dir(self, category: str) -> Path:
         """获取类别目录"""
-        # 录音文件保存到videos目录
         if category == "recording":
             return self.base_dir / "videos"
         return self.base_dir / category
@@ -196,7 +194,6 @@ class FileStorage:
 
     def _create_backend(self) -> StorageBackend:
         """根据配置创建存储后端"""
-        # 检查是否配置了阿里云OSS
         if settings.ALIYUN_OSS_ACCESS_KEY_ID and settings.ALIYUN_OSS_BUCKET_NAME:
             logger.info("Using Aliyun OSS storage backend")
             return AliyunOSSStorage(
@@ -206,7 +203,6 @@ class FileStorage:
                 bucket_name=settings.ALIYUN_OSS_BUCKET_NAME,
             )
 
-        # 默认使用本地存储
         logger.info("Using local storage backend")
         return LocalStorage()
 
@@ -241,7 +237,7 @@ class FileStorage:
             "image": "images",
             "video": "videos",
             "file": "files",
-            "recording": "recording",  # 录音保存到videos目录
+            "recording": "recording",
         }
         return mapping.get(media_type.lower(), "files")
 

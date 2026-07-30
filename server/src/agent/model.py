@@ -12,7 +12,7 @@ from typing import Tuple
 
 from langchain_openai import ChatOpenAI
 
-from src.config.settings import Settings, settings
+from src.core.config import Settings, settings
 from src.core.logger import logger
 
 
