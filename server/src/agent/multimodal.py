@@ -168,10 +168,24 @@ class MultimodalModelClient:
             provider,
         )
 
-        def _is_invalid_api_key_error(exc: Exception) -> bool:
-            # 兼容不同 SDK 的报错格式；这里主要匹配 DashScope 的 invalid_api_key
+        def _is_retriable_error(exc: Exception) -> bool:
+            """判断错误是否应该尝试下一个 provider"""
             msg = str(exc).lower()
-            return ("invalid_api_key" in msg) or ("incorrect api key" in msg)
+            error_indicators = [
+                "invalid_api_key",
+                "incorrect api key",
+                "rate limit",
+                "429",
+                "too many requests",
+                "500",
+                "502",
+                "503",
+                "service unavailable",
+                "timeout",
+                "connection",
+                "network",
+            ]
+            return any(indicator in msg for indicator in error_indicators)
 
         # 候选策略：
         # - 显式指定 provider：严格仅使用该 provider（避免 UI 选了 GLM 却静默回退到千问）
@@ -207,11 +221,11 @@ class MultimodalModelClient:
                         used_provider.value,
                     )
                     return str(response.content)
-                except Exception as exc:  # noqa: BLE001
-                    if _is_invalid_api_key_error(exc):
+                except Exception as exc:
+                    if _is_retriable_error(exc):
                         last_exc = exc
                         logger.warning(
-                            "Provider auth failed (invalid_api_key). provider=%s, try next. error=%s",
+                            "Provider '%s' retriable error: %s. Trying next provider...",
                             cand,
                             exc,
                         )
@@ -311,9 +325,24 @@ class MultimodalModelClient:
         """
         from src.agent.model import ModelProvider, build_chat_model
 
-        def _is_invalid_api_key_error(exc: Exception) -> bool:
+        def _is_retriable_error(exc: Exception) -> bool:
+            """判断错误是否应该尝试下一个 provider"""
             msg = str(exc).lower()
-            return ("invalid_api_key" in msg) or ("incorrect api key" in msg)
+            error_indicators = [
+                "invalid_api_key",
+                "incorrect api key",
+                "rate limit",
+                "429",
+                "too many requests",
+                "500",
+                "502",
+                "503",
+                "service unavailable",
+                "timeout",
+                "connection",
+                "network",
+            ]
+            return any(indicator in msg for indicator in error_indicators)
 
         default_priority = [
             ModelProvider.tongyi.value,
@@ -375,7 +404,7 @@ class MultimodalModelClient:
         messages.append(HumanMessage(content=content_parts or query))
 
         # 流式输出
-        async for chunk in self._stream_invoke(messages, candidates, provider):
+        async for chunk in self._stream_invoke(messages, candidates, provider, _is_retriable_error):
             yield chunk
 
     async def _stream_invoke(
@@ -383,9 +412,20 @@ class MultimodalModelClient:
         messages: List[BaseMessage],
         candidates: List[str],
         provider: str | None,
+        is_retriable_error: callable = None,
     ) -> AsyncGenerator[str, None]:
         """流式调用模型，带回退"""
         from src.agent.model import ModelProvider, build_chat_model
+
+        if is_retriable_error is None:
+            def _default_retriable(exc: Exception) -> bool:
+                msg = str(exc).lower()
+                return any(x in msg for x in [
+                    "invalid_api_key", "incorrect api key", "rate limit", "429",
+                    "too many requests", "500", "502", "503", "service unavailable",
+                    "timeout", "connection", "network"
+                ])
+            is_retriable_error = _default_retriable
 
         last_exc: Exception | None = None
         for cand in candidates:
@@ -397,10 +437,9 @@ class MultimodalModelClient:
                 logger.debug("Stream chat succeeded with provider=%s", used_provider.value)
                 return
             except Exception as exc:
-                msg = str(exc).lower()
-                if "invalid_api_key" in msg or "incorrect api key" in msg:
+                if is_retriable_error(exc):
                     last_exc = exc
-                    logger.warning("Provider auth failed, trying next: %s", exc)
+                    logger.warning("Provider '%s' retriable error: %s. Trying next...", cand, exc)
                     continue
                 raise
 

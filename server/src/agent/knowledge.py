@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -29,30 +30,84 @@ class KnowledgeBase:
 
     默认从项目根目录下的 README 与 data/knowledge 目录中加载文本，
     构建 Milvus 向量索引，并通过通义的 DashScope embedding 接口进行向量化。
+    支持动态配置知识库路径。
     """
 
     def __init__(self) -> None:
         self._vectorstore: Optional[Milvus] = None
         self._build_attempted: bool = False
         self._last_build_error: Optional[str] = None
+        self._source_paths: List[Path] = []
 
     @staticmethod
     def _repo_root() -> Path:
         """knowledge.py 位于 <repo>/server/src/agent/knowledge.py → 仓库根目录"""
         return Path(__file__).resolve().parents[3]
 
+    def _get_knowledge_sources(self) -> List[Path]:
+        """
+        获取知识库源路径列表
+
+        支持多种配置方式：
+        1. 环境变量 KNOWLEDGE_BASE_PATHS（逗号分隔的路径列表）
+        2. 默认路径：README.md + data/knowledge/*.md
+
+        Returns:
+            知识库源文件路径列表
+        """
+        sources: List[Path] = []
+        root = self._repo_root()
+
+        # 1. 优先使用环境变量配置
+        env_paths = os.getenv("KNOWLEDGE_BASE_PATHS", "").strip()
+        if env_paths:
+            for path_str in env_paths.split(","):
+                path_str = path_str.strip()
+                if not path_str:
+                    continue
+                path = Path(path_str)
+                if not path.is_absolute():
+                    path = root / path
+                if path.exists():
+                    if path.is_file():
+                        sources.append(path)
+                    elif path.is_dir():
+                        sources.extend(path.rglob("*.md"))
+                        sources.extend(path.rglob("*.txt"))
+                else:
+                    logger.warning(f"Knowledge source path does not exist: {path}")
+            if sources:
+                logger.info(f"Loaded {len(sources)} knowledge sources from KNOWLEDGE_BASE_PATHS")
+                return sources
+
+        # 2. 默认路径：README.md
+        readme_path = root / "README.md"
+        if readme_path.exists():
+            sources.append(readme_path)
+
+        # 3. 默认路径：data/knowledge 目录
+        knowledge_dir = root / "data" / "knowledge"
+        if knowledge_dir.exists():
+            md_files = list(knowledge_dir.rglob("*.md"))
+            sources.extend(md_files)
+
+        return sources
+
     def get_status(self) -> dict:
         """供运维/Swagger 诊断：为何不建 Milvus、当前是否已就绪（不含密钥内容）"""
         root = self._repo_root()
         readme_path = root / "README.md"
         knowledge_dir = root / "data" / "knowledge"
-        md_files = list(knowledge_dir.rglob("*.md")) if knowledge_dir.exists() else []
+        sources = self._get_knowledge_sources()
+
         return {
             "repo_root": str(root),
             "readme_path": str(readme_path),
             "readme_exists": readme_path.exists(),
             "knowledge_dir": str(knowledge_dir),
-            "knowledge_md_count": len(md_files),
+            "knowledge_md_count": len([p for p in sources if p.suffix == ".md"]),
+            "total_sources": len(sources),
+            "source_paths": [str(p) for p in sources],
             "aliyun_api_key_configured": bool(settings.ALIYUN_API_KEY),
             "embedding_model": settings.ALIYUN_EMBEDDING_MODEL_NAME,
             "milvus_host": settings.MILVUS_HOST,
@@ -62,11 +117,11 @@ class KnowledgeBase:
             "vectorstore_ready": self._vectorstore is not None,
             "build_attempted": self._build_attempted,
             "last_build_error": self._last_build_error,
-            "hint": "集合仅在首次成功 ingest 后出现；只调 GET /collections 不会建库。可 POST /api/milvus/rebuild-knowledge 强制重建。",
+            "hint": "可通过 KNOWLEDGE_BASE_PATHS 环境变量自定义知识库路径，多个路径用逗号分隔。",
         }
 
     def rebuild(self) -> dict:
-        """重置状态并重新从 README / data/knowledge 写入 Milvus（配置好 Key 后调用）"""
+        """重置状态并重新从配置的知识库源写入 Milvus"""
         self._vectorstore = None
         self._build_attempted = False
         self._last_build_error = None
@@ -88,27 +143,19 @@ class KnowledgeBase:
         texts: List[str] = []
         metadatas: List[dict] = []
 
-        # 1）README 作为默认知识来源
-        readme_path = root / "README.md"
-        if readme_path.exists():
-            try:
-                texts.append(readme_path.read_text(encoding="utf-8"))
-                metadatas.append({"source": "README.md"})
-            except Exception as exc:
-                logger.warning("Failed to read README.md for knowledge base: %s", exc)
+        # 获取知识库源路径
+        self._source_paths = self._get_knowledge_sources()
 
-        # 2）可选的 data/knowledge 目录
-        knowledge_dir = root / "data" / "knowledge"
-        if knowledge_dir.exists():
-            for p in knowledge_dir.rglob("*.md"):
-                try:
-                    texts.append(p.read_text(encoding="utf-8"))
-                    metadatas.append({"source": str(p.relative_to(root))})
-                except Exception as exc:
-                    logger.warning("Failed to read knowledge file %s: %s", p, exc)
+        for path in self._source_paths:
+            try:
+                content = path.read_text(encoding="utf-8")
+                texts.append(content)
+                metadatas.append({"source": str(path.relative_to(root)) if path.is_relative_to(root) else str(path)})
+            except Exception as exc:
+                logger.warning("Failed to read knowledge file %s: %s", path, exc)
 
         if not texts:
-            msg = "no documents: README.md missing or empty under repo root, and no data/knowledge/**/*.md"
+            msg = "no documents: no valid knowledge sources found. Check KNOWLEDGE_BASE_PATHS or ensure README.md and data/knowledge/*.md exist."
             self._last_build_error = msg
             logger.info("Knowledge base has no documents; retrieval node will be a no-op.")
             return None

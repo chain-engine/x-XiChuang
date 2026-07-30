@@ -7,7 +7,10 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+import threading
+import time
+from collections import OrderedDict
+from typing import Dict, List, Optional
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 
@@ -23,12 +26,45 @@ class ConversationMemory:
     - 以 session_id 为键，在进程内存中保存消息列表
     - 仅保留最近 N 轮对话（用户 + 助手）
     - 使用大模型生成滚动摘要，作为长期记忆
+    - 支持 LRU 淘汰策略，防止内存无限增长
     """
 
+    # 最大会话数限制，超过后淘汰最旧的会话
+    MAX_SESSIONS: int = 1000
+    # 单个会话最大消息对数（用户+助手）
+    MAX_TURNS: int = 10
+    # 会话最大空闲时间（秒），超过后自动清理
+    SESSION_TTL: int = 3600  # 1小时
+
     def __init__(self, max_turns: int = 10) -> None:
-        self._store: Dict[str, List[BaseMessage]] = {}
-        self._summaries: Dict[str, str] = {}
         self.max_turns = max_turns
+        self._store: OrderedDict[str, List[BaseMessage]] = OrderedDict()
+        self._summaries: Dict[str, str] = {}
+        self._timestamps: Dict[str, float] = {}
+        self._lock = threading.RLock()
+
+    def _evict_if_needed(self) -> None:
+        """如果会话数超限，淘汰最旧的会话"""
+        with self._lock:
+            while len(self._store) >= self.MAX_SESSIONS:
+                oldest_session_id, _ = self._store.popitem(last=False)
+                self._summaries.pop(oldest_session_id, None)
+                self._timestamps.pop(oldest_session_id, None)
+                logger.debug(f"Evicted oldest session: {oldest_session_id}")
+
+    def _clean_expired_sessions(self) -> None:
+        """清理超时的会话"""
+        current_time = time.time()
+        expired = [
+            sid for sid, ts in self._timestamps.items()
+            if current_time - ts > self.SESSION_TTL
+        ]
+        for sid in expired:
+            self._store.pop(sid, None)
+            self._summaries.pop(sid, None)
+            self._timestamps.pop(sid, None)
+        if expired:
+            logger.debug(f"Cleaned {len(expired)} expired sessions")
 
     def get_messages(self, session_id: str) -> List[BaseMessage]:
         """
@@ -40,7 +76,13 @@ class ConversationMemory:
         Returns:
             消息列表（若不存在则返回空列表）
         """
-        return list(self._store.get(session_id, []))
+        with self._lock:
+            # 更新访问时间
+            if session_id in self._timestamps:
+                self._timestamps[session_id] = time.time()
+                # 移动到末尾（LRU）
+                self._store.move_to_end(session_id)
+            return list(self._store.get(session_id, []))
 
     def save_messages(self, session_id: str, messages: List[BaseMessage]) -> None:
         """
@@ -50,7 +92,13 @@ class ConversationMemory:
             session_id: 会话ID
             messages: 消息列表
         """
-        self._store[session_id] = list(messages)
+        with self._lock:
+            self._evict_if_needed()
+            self._store[session_id] = list(messages)
+            self._timestamps[session_id] = time.time()
+            # 移动到末尾
+            self._store.move_to_end(session_id)
+            self._clean_expired_sessions()
 
     def trim_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:
         """
@@ -71,8 +119,8 @@ class ConversationMemory:
         self,
         session_id: str,
         messages: List[BaseMessage],
-        provider: str | None = None,
-    ) -> str | None:
+        provider: Optional[str] = None,
+    ) -> Optional[str]:
         """
         使用大模型对当前会话做简短摘要
 
@@ -105,7 +153,8 @@ class ConversationMemory:
             summarizer, used_provider = build_chat_model(settings, preferred=provider)
             result = await summarizer.ainvoke([HumanMessage(content=prompt)])
             summary = str(result.content)
-            self._summaries[session_id] = summary
+            with self._lock:
+                self._summaries[session_id] = summary
             return summary
         except Exception as e:
             logger.error(f"Failed to update summary: {e}")
@@ -118,9 +167,22 @@ class ConversationMemory:
         Args:
             session_id: 会话ID
         """
-        self._store.pop(session_id, None)
-        self._summaries.pop(session_id, None)
+        with self._lock:
+            self._store.pop(session_id, None)
+            self._summaries.pop(session_id, None)
+            self._timestamps.pop(session_id, None)
 
     def get_all_sessions(self) -> List[str]:
         """获取所有会话ID列表"""
-        return list(self._store.keys())
+        with self._lock:
+            return list(self._store.keys())
+
+    def get_stats(self) -> Dict:
+        """获取记忆统计信息"""
+        with self._lock:
+            return {
+                "total_sessions": len(self._store),
+                "max_sessions": self.MAX_SESSIONS,
+                "session_ttl_seconds": self.SESSION_TTL,
+                "max_turns_per_session": self.max_turns,
+            }

@@ -239,13 +239,33 @@ async def chat_stream(
                 else:
                     history.append(AIMessage(content=msg.content))
 
+            # 转换 media_inputs
+            media_inputs = []
+            for mi in request.media_inputs:
+                from src.agent.media import MediaInput as AgentMediaInput, MediaType
+                type_mapping = {
+                    "text": MediaType.TEXT,
+                    "voice": MediaType.VOICE,
+                    "audio": MediaType.AUDIO,
+                    "image": MediaType.IMAGE,
+                    "video": MediaType.VIDEO,
+                    "auto": MediaType.AUTO,
+                }
+                media_inputs.append(
+                    AgentMediaInput(
+                        type=type_mapping.get(mi.type.lower(), MediaType.AUTO),
+                        filename=mi.filename,
+                        bytes_base64=mi.bytes_base64,
+                    )
+                )
+
             # 流式生成
             full_answer = ""
             async for chunk in chat_service.handle_stream(
                 session_id=request.session_id,
                 query=request.query,
                 history=history,
-                media_inputs=[],
+                media_inputs=media_inputs,
                 use_direct_multimodal=request.use_direct_multimodal,
                 provider=provider,
             ):

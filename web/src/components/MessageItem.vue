@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
@@ -10,20 +10,37 @@ import aiAssistantLogo from '../assets/images/ai-assistant.svg'
 const renderer = {
   code(code, language) {
     let highlighted
-    if (language && hljs.getLanguage(language)) {
+    const lang = language || 'plaintext'
+    if (lang && hljs.getLanguage(lang)) {
       try {
-        highlighted = hljs.highlight(code, { language }).value
+        highlighted = hljs.highlight(code, { language: lang }).value
       } catch {
         highlighted = hljs.highlightAuto(code).value
       }
     } else {
       highlighted = hljs.highlightAuto(code).value
     }
-    return `<pre><code class="hljs">${highlighted}</code></pre>`
+    const escapedCode = code.replace(/"/g, '&quot;')
+    return `<pre class="code-block" data-language="${lang}" data-code="${escapedCode}"><div class="code-header"><span class="code-language">${lang}</span><button class="copy-btn" onclick="window.__copyCode(this)">复制</button></div><code class="hljs">${highlighted}</code></pre>`
   }
 }
 
 marked.use({ renderer })
+
+// 全局复制函数
+if (typeof window !== 'undefined') {
+  window.__copyCode = function(btn) {
+    const pre = btn.closest('pre')
+    const code = pre.dataset.code || pre.querySelector('code')?.textContent || ''
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = '已复制!'
+      setTimeout(() => { btn.textContent = '复制' }, 2000)
+    }).catch(() => {
+      btn.textContent = '复制失败'
+      setTimeout(() => { btn.textContent = '复制' }, 2000)
+    })
+  }
+}
 
 const props = defineProps({
   message: {
@@ -181,21 +198,52 @@ const showMessageText = computed(() => {
 }
 
 /* 代码块 */
-.message-text :deep(pre) {
+.message-text :deep(pre.code-block) {
   margin: 0.8em 0;
-  padding: 1em;
   background: #1e1e1e;
   border-radius: 8px;
   overflow-x: auto;
+  position: relative;
 }
 
-.message-text :deep(pre code) {
+.message-text :deep(pre.code-block) .code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4em 0.8em;
+  background: #2d2d2d;
+  border-bottom: 1px solid #3d3d3d;
+  border-radius: 8px 8px 0 0;
+}
+
+.message-text :deep(pre.code-block) .code-language {
+  font-size: 0.75em;
+  color: #888;
+  font-family: 'Consolas', 'Monaco', monospace;
+  text-transform: uppercase;
+}
+
+.message-text :deep(pre.code-block) .copy-btn {
   background: transparent;
-  padding: 0;
-  font-size: 0.9em;
-  line-height: 1.6;
-  color: #d4d4d4;
-  white-space: pre;
+  border: 1px solid #555;
+  color: #ccc;
+  padding: 0.2em 0.6em;
+  border-radius: 4px;
+  font-size: 0.75em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.message-text :deep(pre.code-block) .copy-btn:hover {
+  background: #3d3d3d;
+  border-color: #666;
+}
+
+.message-text :deep(pre.code-block) code {
+  display: block;
+  padding: 0.8em;
+  background: transparent;
+  overflow-x: auto;
 }
 
 /* 代码高亮 */
