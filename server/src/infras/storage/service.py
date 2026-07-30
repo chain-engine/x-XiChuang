@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import BinaryIO, Optional, Tuple
 
-from src.config.settings import settings
+from src.core.config import settings
 from src.core.logger import logger
 
 

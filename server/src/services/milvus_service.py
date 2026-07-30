@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from src.core.logger import logger
-from src.milvus import MilvusClient, get_milvus_client
+from src.infras import MilvusClient, get_milvus_client
 
 
 class MilvusService:

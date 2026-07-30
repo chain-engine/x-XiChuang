@@ -171,7 +171,7 @@ async def _check_milvus() -> HealthStatus:
     """检查 Milvus 连接"""
     start_time = time.perf_counter()
     try:
-        from src.milvus import get_milvus_client
+        from src.infras import get_milvus_client
 
         client = get_milvus_client()
         stats = client.get_stats()
