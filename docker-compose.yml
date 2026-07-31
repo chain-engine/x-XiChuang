@@ -26,7 +26,7 @@ services:
 
   # Milvus 向量数据库 (standalone 模式)
   milvus:
-    image: milvusdb/milvus:latest
+    image: milvusdb/milvus:v2.4.10
     container_name: xichuang-milvus
     restart: unless-stopped
     environment:
@@ -49,7 +49,7 @@ services:
 
   # Milvus 依赖: etcd
   etcd:
-    image: quay.io/coreos/etcd:latest
+    image: quay.io/coreos/etcd:v3.5.5
     container_name: xichuang-etcd
     environment:
       - ETCD_AUTO_COMPACTION_MODE=revision
@@ -61,10 +61,15 @@ services:
     command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls=http://0.0.0.0:2379 --data-dir /etcd
     networks:
       - xichuang-network
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health", "--endpoints=http://localhost:2379"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   # Milvus 依赖: minio
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
     container_name: xichuang-minio
     environment:
       MINIO_ACCESS_KEY: minioadmin
@@ -74,6 +79,11 @@ services:
     command: minio server /data --console-address ":9001"
     networks:
       - xichuang-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   # 西窗主应用
   app:
@@ -109,7 +119,7 @@ services:
       TEMPERATURE: ${TEMPERATURE:-0}
       STORAGE_TYPE: ${STORAGE_TYPE:-local}
     volumes:
-      # 挂载本地存储目录（用于文件上传）
+      # 挂载本地存储目录（用于文件上传），容器内 /app/statics
       - ./server/statics:/app/statics
       - ./logs:/app/logs
       # 挂载配置文件（可选）
@@ -118,16 +128,18 @@ services:
       mysql:
         condition: service_healthy
       milvus:
-        condition: service_started
+        condition: service_healthy
     networks:
       - xichuang-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      # 使用专用 live 端点，避免 SPA 兜底 HTML 干扰健康检查
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     # 开发模式启用热重载
-    # command: ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    # command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 networks:
   xichuang-network:

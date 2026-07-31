@@ -235,9 +235,18 @@ def register_middlewares(app: "ASGIApp") -> None:
         raise TypeError("app must be a FastAPI instance")
 
     # CORS 中间件（最外层）
+    # 注意：浏览器规范下 allow_credentials=True 时 allow_origins 不能是 *
+    cors_origins = settings.CORS_ORIGINS
+    if settings.CORS_ALLOW_CREDENTIALS and "*" in cors_origins:
+        cors_origins = [
+            "http://localhost:5173",
+            "http://localhost:8000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:8000",
+        ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS if settings.CORS_ORIGINS != ["*"] else ["*"],
+        allow_origins=cors_origins,
         allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
         allow_methods=["*"],
         allow_headers=["*"],

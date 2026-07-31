@@ -7,6 +7,7 @@ FastAPI 应用入口
 
 from __future__ import annotations
 
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -86,9 +87,16 @@ def create_app() -> FastAPI:
     # ============ 注册中间件 ============
 
     # CORS 中间件
+    # 浏览器规范：当 allow_credentials=True 时，allow_origins 不能是通配符 *
+    # 这里在配置为 * 且开启 credentials 时自动降级为反射模式（不安全但兼容开发环境）
+    cors_origins = settings.CORS_ORIGINS
+    if settings.CORS_ALLOW_CREDENTIALS and "*" in cors_origins:
+        # 反射 Origin（仅开发用；生产应该配置具体域名）
+        cors_origins = ["http://localhost:5173", "http://localhost:8000", "http://127.0.0.1:5173", "http://127.0.0.1:8000"]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS if settings.CORS_ORIGINS != ["*"] else ["*"],
+        allow_origins=cors_origins,
         allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -125,10 +133,25 @@ def create_app() -> FastAPI:
     return app
 
 
+def _project_root() -> Path:
+    """
+    项目根目录路径解析。
+
+    优先级：
+    1. 环境变量 XICHUANG_PROJECT_ROOT（Docker / 自定义部署使用）
+    2. src/main.py 的 parents[1]（本地开发 / uv pip install -e 场景）
+    """
+    env_root = os.getenv("XICHUANG_PROJECT_ROOT")
+    if env_root:
+        return Path(env_root).resolve()
+    # src/main.py → parents[0]=src, parents[1]=项目根
+    return Path(__file__).resolve().parents[1]
+
+
 def _mount_static_files(app: FastAPI) -> None:
     """挂载静态文件目录"""
-    project_root = Path(__file__).resolve().parents[2]
-    statics_dir = project_root / "server" / "statics"
+    project_root = _project_root()
+    statics_dir = project_root / settings.STATIC_DIR
 
     if statics_dir.exists():
         app.mount("/statics", StaticFiles(directory=str(statics_dir)), name="statics")
@@ -140,6 +163,9 @@ def _mount_static_files(app: FastAPI) -> None:
         assets_dir = dist_dir / "assets"
         if assets_dir.exists():
             app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+            logger.info("Frontend assets mounted: %s", assets_dir)
+    else:
+        logger.warning("Frontend dist not found at %s; root path will return 503", dist_dir)
 
 
 def _setup_frontend_routes(app: FastAPI) -> None:
@@ -148,7 +174,7 @@ def _setup_frontend_routes(app: FastAPI) -> None:
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def index() -> HTMLResponse:
         """返回前端首页"""
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = _project_root()
         dist_dir = project_root / "web" / "dist"
         index_path = dist_dir / "index.html"
 
@@ -173,14 +199,14 @@ def _setup_frontend_routes(app: FastAPI) -> None:
     )
     async def catch_all(request: Request, full_path: str):
         """SPA 路由兜底 + API 404 处理"""
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = _project_root()
         dist_dir = project_root / "web" / "dist"
 
         # API 路径返回 404
         if full_path.startswith("api/"):
             return JSONResponse(
                 {"detail": f"API endpoint /{full_path} not found"},
-                status_code=404
+                status_code=404,
             )
 
         # 尝试返回静态文件

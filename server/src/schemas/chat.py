@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from langchain_core.messages import BaseMessage
@@ -166,6 +166,7 @@ class ChatGraphState(BaseModel):
         provider: 模型提供方
         answer: 模型回答
         summary: 对话摘要
+        session_id: 真实会话 ID（用于记忆路由）
     """
 
     messages: list["BaseMessage"] = Field(default_factory=list)
@@ -175,6 +176,10 @@ class ChatGraphState(BaseModel):
     provider: str | None = None
     answer: str | None = None
     summary: str | None = None
+    session_id: str = ""
+
+    # Pydantic v2: 允许节点直接修改字段（LangGraph 默认会原地写）
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class ChatServiceResult(BaseModel):

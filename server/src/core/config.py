@@ -92,7 +92,7 @@ class EmbeddingConfig:
 @dataclass
 class MilvusConfig:
     """Milvus 向量数据库配置"""
-    host: str = "192.168.21.254"
+    host: str = "localhost"
     port: int = 19530
     user: str = ""
     password: str = ""
@@ -286,11 +286,9 @@ class Settings:
         # ============ OpenAI 配置（用于 Whisper） ============
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
-        # ============ 高德地图 API 配置 ============
-        self.AMAP_API_KEY = os.getenv("AMAP_API_KEY", "")
-
         # ============ Milvus 向量数据库配置 ============
-        self.MILVUS_HOST = os.getenv("MILVUS_HOST", "192.168.21.254")
+        # 默认 localhost；Docker 部署通过环境变量覆盖为 milvus
+        self.MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
         self.MILVUS_PORT = _to_int(os.getenv("MILVUS_PORT"), 19530)
         self.MILVUS_USER = os.getenv("MILVUS_USER", "")
         self.MILVUS_PASSWORD = os.getenv("MILVUS_PASSWORD", "")

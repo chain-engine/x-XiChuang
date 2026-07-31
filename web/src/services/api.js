@@ -1,5 +1,8 @@
-const BASE_URL = '/api/chat'
-const CONVERSATIONS_URL = '/api/conversations'
+// 后端所有路由都挂在 /api/v1/... 下（见 server/src/api/route.py）
+// 旧版本用 /api 前缀，后端实际是 /api/v1，会导致 404
+const BASE_URL = '/api/v1/chat'
+const CONVERSATIONS_URL = '/api/v1/conversations'
+const MILVUS_URL = '/api/v1/milvus'
 
 /**
  * 发送带文件的聊天消息

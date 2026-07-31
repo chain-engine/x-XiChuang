@@ -485,5 +485,5 @@ __all__: Final[list[str]] = [
     "MissingConfigError",
     # 存储异常
     "StorageError",
-    "FileNotFoundError",
+    "StorageFileNotFoundError",
 ]

@@ -2,10 +2,52 @@ import { ref, readonly } from 'vue'
 
 /**
  * Voice recording composable using MediaRecorder API
+ *
+ * 浏览器格式兼容策略：
+ * 1. 优先尝试 audio/webm;codecs=opus（Chrome / Firefox / Edge）
+ * 2. 不支持则尝试 audio/mp4（Safari 14.1+）
+ * 3. 再不支持则尝试 audio/ogg
+ * 4. 最后兜底默认（由浏览器自动选择）
+ *
+ * 输出 Blob 的 MIME type 会随所选 mime 一致，文件后缀也按相同规则命名。
+ */
+
+const PREFERRED_MIMES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/mp4',
+  'audio/ogg;codecs=opus',
+  'audio/ogg',
+]
+
+function pickSupportedMime() {
+  if (typeof MediaRecorder === 'undefined') return ''
+  for (const m of PREFERRED_MIMES) {
+    try {
+      if (MediaRecorder.isTypeSupported(m)) return m
+    } catch (_e) {
+      // ignore
+    }
+  }
+  return ''
+}
+
+function extFromMime(mime) {
+  if (!mime) return 'webm'
+  if (mime.includes('webm')) return 'webm'
+  if (mime.includes('mp4')) return 'm4a'
+  if (mime.includes('ogg')) return 'ogg'
+  if (mime.includes('wav')) return 'wav'
+  return 'webm'
+}
+
+/**
+ * Voice recording composable
  */
 export function useRecorder() {
   const recording = ref(false)
   const error = ref(null)
+  const mimeType = ref('')
 
   let mediaRecorder = null
   let audioChunks = []
@@ -14,7 +56,7 @@ export function useRecorder() {
    * Check if recording is supported
    */
   function isSupported() {
-    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== 'undefined')
   }
 
   /**
@@ -28,11 +70,14 @@ export function useRecorder() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      mediaRecorder = new MediaRecorder(stream)
+      const chosen = pickSupportedMime()
+      mimeType.value = chosen
+
+      mediaRecorder = chosen ? new MediaRecorder(stream, { mimeType: chosen }) : new MediaRecorder(stream)
       audioChunks = []
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
+        if (e.data && e.data.size > 0) {
           audioChunks.push(e.data)
         }
       }
@@ -42,8 +87,9 @@ export function useRecorder() {
 
       return new Promise((resolve) => {
         mediaRecorder.onstop = () => {
-          const blob = new Blob(audioChunks, { type: 'audio/webm' })
-          blob.name = 'recording.webm'
+          const finalMime = mediaRecorder.mimeType || chosen || 'audio/webm'
+          const blob = new Blob(audioChunks, { type: finalMime })
+          blob.name = `recording.${extFromMime(finalMime)}`
           recording.value = false
 
           // Stop all tracks to release microphone
@@ -71,8 +117,9 @@ export function useRecorder() {
       }
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' })
-        blob.name = 'recording.webm'
+        const finalMime = mediaRecorder.mimeType || mimeType.value || 'audio/webm'
+        const blob = new Blob(audioChunks, { type: finalMime })
+        blob.name = `recording.${extFromMime(finalMime)}`
         recording.value = false
 
         // Stop all tracks
@@ -109,6 +156,7 @@ export function useRecorder() {
   return {
     recording: readonly(recording),
     error: readonly(error),
+    mimeType: readonly(mimeType),
     isSupported,
     startRecording,
     stopRecording,

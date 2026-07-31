@@ -81,12 +81,19 @@ class BaseRepository(Generic[T]):
             模型实例或 None
         """
         try:
+            # SQLAlchemy 2.x：用 inspect() 获取主键列名，避免 .columns.values()[0] 这种 1.x 写法
+            from sqlalchemy import inspect as _sa_inspect
+
+            pk_columns = list(_sa_inspect(self._model_class).primary_key)
+            if not pk_columns:
+                raise QueryError(f"{self._model_class.__name__} has no primary key defined")
+            pk_col = pk_columns[0]
             result = await self._session.execute(
-                select(self._model_class).where(
-                    self._model_class.__table__.primary_key.columns.values()[0] == entity_id
-                )
+                select(self._model_class).where(pk_col == entity_id)
             )
             return result.scalar_one_or_none()
+        except QueryError:
+            raise
         except Exception as e:
             logger.error(f"Failed to get {self._model_class.__name__} by id {entity_id}: {e}")
             raise QueryError(f"Failed to get record: {e}") from e

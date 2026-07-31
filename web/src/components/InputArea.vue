@@ -83,8 +83,9 @@ async function handleRecordClick() {
   try {
     const blob = await toggleRecording()
     if (blob) {
-      // 录音完成后，设置为待发送状态
-      selectedFile.value = new File([blob], 'recording.webm', { type: 'audio/webm' })
+      // 文件名跟随浏览器实际选定的 mime（兼容 Safari：m4a、Firefox：ogg 等）
+      const filename = blob.name || 'recording.webm'
+      selectedFile.value = new File([blob], filename, { type: blob.type || 'audio/webm' })
       mediaType.value = 'voice'
     }
   } catch (err) {
