@@ -40,7 +40,7 @@ def _to_float(value: str | None, default: float = 0.0) -> float:
 @dataclass
 class AppConfig:
     """应用基础配置"""
-    name: str = "西窗 XiChuang"
+    name: str = "西窗（XiChuang）"
     version: str = "1.0.0"
     description: str = "多模态智能助手 - 支持文本、语音、图片、视频对话"
     environment: str = "development"
@@ -153,7 +153,7 @@ class Settings:
     def _parse_from_env(self) -> None:
         """从环境变量解析配置"""
         # ============ 应用基础配置 ============
-        self.APP_NAME = os.getenv("APP_NAME", "西窗 XiChuang")
+        self.APP_NAME = os.getenv("APP_NAME", "西窗（XiChuang）")
         self.APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
         self.ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
         self.DEBUG = _to_bool(os.getenv("DEBUG"))

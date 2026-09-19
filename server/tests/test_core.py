@@ -22,7 +22,7 @@ class TestSettings:
     def test_default_values(self, empty_settings):
         """测试默认值"""
         settings = empty_settings
-        assert settings.APP_NAME == "西窗 XiChuang"
+        assert settings.APP_NAME == "西窗（XiChuang）"
         assert settings.APP_VERSION == "1.0.0"
         assert settings.DEBUG is True
         assert settings.ENVIRONMENT == "development"
