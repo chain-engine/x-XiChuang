@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-仓储基类
+仓储层
 
-提供通用仓储模式的基础实现。
+提供仓储模式的 ABC 接口和基础实现。
 """
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
 from sqlalchemy import select, func
@@ -20,7 +21,63 @@ from src.core.logger import logger
 T = TypeVar("T")
 
 
-class BaseRepository(Generic[T]):
+# ============ 仓储接口 ============
+
+class IRepository(ABC, Generic[T]):
+    """
+    仓储接口
+
+    定义数据访问层的抽象契约。
+    所有具体仓储必须实现此接口。
+
+    Type Parameters:
+        T: 实体类型
+    """
+
+    @abstractmethod
+    async def get_by_id(self, entity_id: Any) -> T | None:
+        """根据 ID 获取实体"""
+        ...
+
+    @abstractmethod
+    async def get_by_id_or_raise(self, entity_id: Any) -> T:
+        """根据 ID 获取实体，不存在则抛出 NotFoundError"""
+        ...
+
+    @abstractmethod
+    async def create(self, **kwargs: Any) -> T:
+        """创建实体"""
+        ...
+
+    @abstractmethod
+    async def update(self, entity_id: Any, **kwargs: Any) -> T:
+        """更新实体"""
+        ...
+
+    @abstractmethod
+    async def delete(self, entity_id: Any) -> bool:
+        """删除实体"""
+        ...
+
+    @abstractmethod
+    async def list_all(self, limit: int | None = None, offset: int = 0) -> list[T]:
+        """获取所有实体"""
+        ...
+
+    @abstractmethod
+    async def count(self) -> int:
+        """获取实体总数"""
+        ...
+
+    @abstractmethod
+    async def exists(self, entity_id: Any) -> bool:
+        """检查实体是否存在"""
+        ...
+
+
+# ============ 仓储基类 ============
+
+class BaseRepository(IRepository[T]):
     """
     数据仓储基类
 
@@ -28,8 +85,8 @@ class BaseRepository(Generic[T]):
     子类通过指定 model_class 来确定操作的模型类型。
 
     Attributes:
-        model_class: 操作的模型类
-        session: 数据库会话
+        _model_class: 操作的模型类
+        _session: 数据库会话
     """
 
     def __init__(self, model_class: type[T], session: AsyncSession) -> None:

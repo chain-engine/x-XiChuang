@@ -78,7 +78,8 @@ def _is_current_model_query(query: str) -> bool:
 
 def _to_agent_media_inputs(items: Iterable[MediaInput]) -> list:
     """把 schema 的 MediaInput 转成 agent 层使用的 MediaInput。"""
-    from src.agent.media import MediaInput as AgentMediaInput, MediaType
+    from src.agent.media import MediaInput as AgentMediaInput
+    from src.constants.enums import MediaType
 
     type_mapping = {
         "text": MediaType.TEXT,
@@ -123,76 +124,22 @@ async def _persist_turn(
     provider: Optional[str],
 ) -> None:
     """
-    把一轮对话（用户 + 助手 + 摘要）写入 MySQL，并刷新 in-memory 缓存。
+    把一轮对话写入 MySQL，并刷新 in-memory 缓存。
 
-    - 自动确保会话存在（首次对话时自动创建）
-    - 自动从首条用户消息生成标题
-    - 失败仅写日志，不抛异常（持久化失败不应阻塞用户拿到响应）
+    委托给 ConversationService.persist_chat_turn()，避免 API 层直接访问仓储。
     """
     if not conversation_id or not assistant_answer:
         return
 
     try:
         service = ConversationService(session)
-
-        # 确保会话存在
-        existing = await service.conversation_repo.get_with_messages(conversation_id)
-        if existing is None:
-            first_user_text = (user_query or "").strip()
-            title = first_user_text[:20] + ("..." if len(first_user_text) > 20 else "")
-            if not title:
-                title = "新对话"
-            await service.conversation_repo.create(
-                conversation_id=conversation_id,
-                title=title,
-                model_provider=provider or "tongyi",
-            )
-            existing = await service.conversation_repo.get_with_messages_or_raise(
-                conversation_id
-            )
-
-        # 追加两条消息
-        if user_query:
-            await service.message_repo.create(
-                conversation_id=conversation_id,
-                role="user",
-                content=user_query,
-            )
-        await service.message_repo.create(
+        await service.persist_chat_turn(
             conversation_id=conversation_id,
-            role="assistant",
-            content=assistant_answer,
+            user_query=user_query,
+            assistant_answer=assistant_answer,
+            summary=summary,
+            provider=provider,
         )
-
-        # 写摘要
-        if summary:
-            await service.update_conversation(conversation_id, summary=summary)
-
-        # 刷新 in-memory 缓存（避免下次同会话进来读不到刚写入的消息）
-        from src.services.chat_service import get_chat_service
-
-        chat_svc = get_chat_service()
-        from src.agent.memory import _from_langchain_messages
-
-        # 从 DB 重新拉最新消息写入缓存
-        refreshed = await service.conversation_repo.get_with_messages_or_raise(
-            conversation_id
-        )
-        raw = [
-            {"role": m.role, "content": m.content}
-            for m in sorted(refreshed.messages, key=lambda m: m.created_at or 0)
-        ]
-        from langchain_core.messages import HumanMessage as _HM, AIMessage as _AM
-
-        lcmsgs = []
-        for item in raw:
-            if item["role"] == "user":
-                lcmsgs.append(_HM(content=item["content"]))
-            elif item["role"] == "assistant":
-                lcmsgs.append(_AM(content=item["content"]))
-        chat_svc.memory.save_messages(conversation_id, lcmsgs)
-        if summary:
-            chat_svc.memory.set_summary(conversation_id, summary)
     except Exception as e:
         logger.error(f"Failed to persist chat turn for {conversation_id}: {e}")
 
@@ -202,23 +149,13 @@ async def _load_history_into_memory(session_id: str) -> None:
     if not session_id:
         return
     try:
-        from sqlalchemy.ext.asyncio import AsyncSession as _AS
-
         from src.infras.database import get_async_db
-        from src.services.chat_service import get_chat_service
 
         async for session in get_async_db():
             service = ConversationService(session)
-            conv = await service.conversation_repo.get_with_messages(session_id)
-            if conv is None:
-                return
-            raw = [
-                {"role": m.role, "content": m.content}
-                for m in sorted(conv.messages, key=lambda m: m.created_at or 0)
-            ]
-            get_chat_service().memory.prime_from_persistence(session_id, raw)
+            await service.load_history_to_memory(session_id)
     except Exception as e:
-        logger.warning(f"Failed to load history for {session_id}: {e}")
+        logger.error(f"Failed to load history for {session_id}: {e}")
 
 
 # ============ 路由 ============
@@ -480,7 +417,8 @@ async def chat_with_upload(
                 detail=f"File too large ({len(content)} > {MAX_FILE_BYTES})",
             )
 
-        from src.agent.media import MediaInput as AgentMediaInput, MediaType
+        from src.agent.media import MediaInput as AgentMediaInput
+        from src.constants.enums import MediaType
 
         type_mapping = {
             "text": MediaType.TEXT,

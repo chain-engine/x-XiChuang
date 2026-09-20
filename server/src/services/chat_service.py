@@ -15,6 +15,7 @@ from langgraph.graph import END, StateGraph
 
 from src.core.logger import logger
 from src.schemas.chat import ChatGraphState, ChatServiceResult
+from .base import IChatService
 
 if TYPE_CHECKING:
     from src.agent.media import MediaInput
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 SUMMARY_TRIGGER_MIN_MESSAGES = 6
 
 
-class ChatService:
+class ChatService(IChatService):
     """
     对话服务类
 

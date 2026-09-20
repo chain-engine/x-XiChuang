@@ -7,7 +7,8 @@
 
 from .memory import ConversationMemory
 from .multimodal import MultimodalModelClient
-from .model import build_chat_model, ModelProvider
+from .model import build_chat_model
+from src.schemas.enum import ModelProvider
 from .knowledge import KnowledgeBase, knowledge_base
 
 __all__ = [

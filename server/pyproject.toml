@@ -7,7 +7,7 @@ authors = [
 ]
 requires-python = ">=3.11"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
 keywords = ["ai", "multimodal", "chatbot", "langchain", "langgraph", "fastapi"]
 classifiers = [
     "Development Status :: 4 - Beta",

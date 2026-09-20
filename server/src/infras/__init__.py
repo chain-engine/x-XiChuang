@@ -19,7 +19,7 @@
     - database: DatabaseProvider → MySqlProvider（ABC 接口 + 连接管理）
     - milvus:   VectorStoreProvider → MilvusVectorStoreProvider
     - storage:  StorageProvider → LocalStorage / AliyunOSSStorage
-"
+"""
 
 from .database import (
     Base,
@@ -36,7 +36,6 @@ from .database import (
     SessionLocal,
     AsyncSessionLocal,
 )
-from src.models.entities import ConversationEntity, MessageEntity
 
 from .milvus import (
     MilvusClient,
@@ -73,9 +72,6 @@ __all__ = [
     "async_engine",
     "SessionLocal",
     "AsyncSessionLocal",
-    # ORM 模型
-    "ConversationEntity",
-    "MessageEntity",
     # Milvus 向量数据库
     "VectorStoreProvider",
     "MilvusVectorStoreProvider",

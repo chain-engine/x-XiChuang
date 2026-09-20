@@ -83,8 +83,7 @@ class SystemException(AppException):
         super().__init__(message, code, status_code, details)
 
 
-# 向后兼容别名
-BaseException = AppException
+# 向后兼容别名（不覆盖 Python 内置名称）
 BusinessError = BusinessException
 SystemError = SystemException
 
@@ -226,11 +225,15 @@ class DatabaseError(SystemException):
         super().__init__(message, 500, 500, details)
 
 
-class ConnectionError(DatabaseError):
+class DatabaseConnectionError(DatabaseError):
     """数据库连接异常"""
 
     def __init__(self, message: str = "Database connection failed", details: Any = None) -> None:
         super().__init__(message, details)
+
+
+# 向后兼容别名
+ConnectionError = DatabaseConnectionError
 
 
 class QueryError(DatabaseError):
@@ -252,11 +255,15 @@ class ExternalServiceError(SystemException):
         super().__init__(message, 502, 502, details)
 
 
-class TimeoutError(ExternalServiceError):
+class ServiceTimeoutError(ExternalServiceError):
     """超时异常"""
 
     def __init__(self, message: str = "Request timeout", details: Any = None) -> None:
         super().__init__(message, details)
+
+
+# 向后兼容别名
+TimeoutError = ServiceTimeoutError
 
 
 # ============================================================================
@@ -371,7 +378,6 @@ __all__: Final[list[str]] = [
     "BusinessException",
     "SystemException",
     # 向后兼容别名
-    "BaseException",
     "BusinessError",
     "SystemError",
     # 通用业务异常
@@ -395,11 +401,11 @@ __all__: Final[list[str]] = [
     "RetrievalError",
     # 数据库异常
     "DatabaseError",
-    "ConnectionError",
+    "DatabaseConnectionError",
     "QueryError",
     # 外部服务异常
     "ExternalServiceError",
-    "TimeoutError",
+    "ServiceTimeoutError",
     # 配置异常
     "ConfigurationError",
     "MissingConfigError",

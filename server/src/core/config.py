@@ -109,6 +109,11 @@ class MySQLConfig:
     user: str = "root"
     password: str = ""
     database: str = "xichuang"
+    # 连接池配置
+    pool_size: int = 5
+    max_overflow: int = 10
+    pool_recycle: int = 3600
+    pool_pre_ping: bool = True
 
 
 @dataclass
@@ -354,6 +359,11 @@ class Settings:
             max_tokens=self.MAX_TOKENS,
             request_timeout=self.REQUEST_TIMEOUT,
         )
+
+        # ============ 业务常量 ============
+        self.MAX_TITLE_LENGTH: int = _to_int(os.getenv("MAX_TITLE_LENGTH"), 20)
+        self.SUMMARY_TRIGGER_MIN_MESSAGES: int = _to_int(os.getenv("SUMMARY_TRIGGER_MIN_MESSAGES"), 6)
+        self.MAX_FILE_BYTES: int = _to_int(os.getenv("MAX_FILE_BYTES"), 25 * 1024 * 1024)
 
     # ============ 计算属性 ============
 

@@ -119,7 +119,7 @@ class StorageType(BaseEnum):
     """
 
     LOCAL = ("local", "Local Storage")
-    S3 = ("s3", "S3 Compatible Storage")
+    OSS = ("oss", "Aliyun OSS")
     MINIO = ("minio", "MinIO Storage")
 
 
@@ -208,27 +208,3 @@ class ErrorCodeEnum(BaseEnum):
     # 外部服务错误
     EXT_2001 = (2001, "External Error 2001")
     EXT_2002 = (2002, "External Error 2002")
-
-
-class StorageType(BaseEnum):
-    """
-    存储类型枚举
-
-    定义支持的存储后端类型。
-    """
-
-    LOCAL = ("local", "Local Storage")
-    OSS = ("oss", "Aliyun OSS")
-    MINIO = ("minio", "MinIO")
-
-
-class ConversationStatus(BaseEnum):
-    """
-    会话状态枚举
-
-    定义会话的状态。
-    """
-
-    ACTIVE = ("active", "Active")
-    ARCHIVED = ("archived", "Archived")
-    DELETED = ("deleted", "Deleted")

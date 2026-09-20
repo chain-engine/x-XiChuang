@@ -224,6 +224,9 @@ def get_database_provider() -> DatabaseProvider:
     return MySqlProvider(
         database_url=settings.DATABASE_URL,
         async_database_url=settings.ASYNC_DATABASE_URL,
+        pool_size=settings.mysql.pool_size,
+        max_overflow=settings.mysql.max_overflow,
+        pool_recycle=settings.mysql.pool_recycle,
         echo=settings.DEBUG,
     )
 

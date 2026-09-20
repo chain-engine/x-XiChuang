@@ -16,7 +16,7 @@ from enum import Enum
 from typing import Any
 
 
-class BaseEnum(str, Enum):
+class BaseEnum(Enum):
     """
     可描述枚举基类
 
@@ -25,9 +25,12 @@ class BaseEnum(str, Enum):
     - desc: 描述信息
     """
 
-    def __init__(self, mark: str | int, desc: str) -> None:
-        self._mark = mark
-        self._desc = desc
+    def __new__(cls, mark: str | int, desc: str) -> "BaseEnum":
+        obj = object.__new__(cls)
+        obj._value_ = mark
+        obj._mark = mark
+        obj._desc = desc
+        return obj
 
     @property
     def mark(self) -> str | int:

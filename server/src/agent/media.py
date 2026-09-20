@@ -7,21 +7,11 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
 
-
-class MediaType(str, Enum):
-    """媒体类型枚举"""
-
-    AUDIO = "audio"
-    IMAGE = "image"
-    VIDEO = "video"
-    VOICE = "voice"  # 录音
-    TEXT = "text"
-    AUTO = "auto"
+from src.constants.enums import MediaType
 
 
 class MediaInput(BaseModel):

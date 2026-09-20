@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.exceptions import ConflictError, NotFoundError
 from src.core.logger import logger
 from src.repositories.conversation import ConversationRepository, MessageRepository
+from .base import IConversationService
 
 if TYPE_CHECKING:
     from src.schemas.conversation import (
@@ -23,7 +24,11 @@ if TYPE_CHECKING:
     )
 
 
-class ConversationService:
+# 标题截断最大长度
+_MAX_TITLE_LENGTH: int = 20
+
+
+class ConversationService(IConversationService):
     """
     会话服务
 
@@ -42,18 +47,26 @@ class ConversationService:
         self._message_repo: Optional[MessageRepository] = None
 
     @property
-    def conversation_repo(self) -> ConversationRepository:
-        """获取会话仓储（懒加载）"""
-        if self._conversation_repo is None:
-            self._conversation_repo = ConversationRepository(self._session)
-        return self._conversation_repo
+    def _conversation_repo(self) -> ConversationRepository:
+        """获取会话仓储（懒加载，私有）"""
+        if self.__conversation_repo is None:
+            self.__conversation_repo = ConversationRepository(self._session)
+        return self.__conversation_repo
+
+    @_conversation_repo.setter
+    def _conversation_repo(self, value: Optional[ConversationRepository]) -> None:
+        self.__conversation_repo = value
 
     @property
-    def message_repo(self) -> MessageRepository:
-        """获取消息仓储（懒加载）"""
-        if self._message_repo is None:
-            self._message_repo = MessageRepository(self._session)
-        return self._message_repo
+    def _message_repo(self) -> MessageRepository:
+        """获取消息仓储（懒加载，私有）"""
+        if self.__message_repo is None:
+            self.__message_repo = MessageRepository(self._session)
+        return self.__message_repo
+
+    @_message_repo.setter
+    def _message_repo(self, value: Optional[MessageRepository]) -> None:
+        self.__message_repo = value
 
     async def list_conversations(
         self,
@@ -74,7 +87,7 @@ class ConversationService:
         Returns:
             (会话列表, 总数)
         """
-        return await self.conversation_repo.list_recent(
+        return await self._conversation_repo.list_recent(
             limit=limit,
             offset=offset,
             keyword=keyword,
@@ -94,7 +107,7 @@ class ConversationService:
         Raises:
             NotFoundError: 会话不存在
         """
-        conversation = await self.conversation_repo.get_with_messages_or_raise(conversation_id)
+        conversation = await self._conversation_repo.get_with_messages_or_raise(conversation_id)
         return self._to_conversation_detail_dict(conversation)
 
     async def create_conversation(
@@ -121,7 +134,7 @@ class ConversationService:
 
         conv_id = conversation_id or str(uuid.uuid4())
 
-        conversation = await self.conversation_repo.create(
+        conversation = await self._conversation_repo.create(
             conversation_id=conv_id,
             title=title,
             model_provider=model_provider,
@@ -160,9 +173,9 @@ class ConversationService:
             updates["model_provider"] = model_provider
 
         if updates:
-            conversation = await self.conversation_repo.update(conversation_id, **updates)
+            conversation = await self._conversation_repo.update(conversation_id, **updates)
         else:
-            conversation = await self.conversation_repo.get_by_id_or_raise(conversation_id)
+            conversation = await self._conversation_repo.get_by_id_or_raise(conversation_id)
 
         return self._to_conversation_dict(conversation)
 
@@ -179,7 +192,7 @@ class ConversationService:
         Raises:
             NotFoundError: 会话不存在
         """
-        return await self.conversation_repo.delete_with_messages(conversation_id)
+        return await self._conversation_repo.delete_with_messages(conversation_id)
 
     async def save_messages(
         self,
@@ -198,11 +211,11 @@ class ConversationService:
         Returns:
             更新后的会话详情
         """
-        conversation = await self.conversation_repo.get_with_messages(conversation_id)
+        conversation = await self._conversation_repo.get_with_messages(conversation_id)
 
         if conversation is None:
             # 自动创建会话
-            conversation = await self.conversation_repo.create(
+            conversation = await self._conversation_repo.create(
                 conversation_id=conversation_id,
                 title="新对话",
             )
@@ -213,17 +226,17 @@ class ConversationService:
             )
             if first_user_msg:
                 content = first_user_msg.get("content", "")
-                conversation.title = content[:20] + ("..." if len(content) > 20 else "")
+                conversation.title = content[:_MAX_TITLE_LENGTH] + ("..." if len(content) > _MAX_TITLE_LENGTH else "")
 
         elif clear_existing:
             # 清除旧消息
-            await self.message_repo.delete_by_conversation(conversation_id)
+            await self._message_repo.delete_by_conversation(conversation_id)
 
         # 添加新消息
-        await self.message_repo.bulk_create(conversation_id, messages)
+        await self._message_repo.bulk_create(conversation_id, messages)
 
         # 重新加载会话
-        conversation = await self.conversation_repo.get_with_messages_or_raise(conversation_id)
+        conversation = await self._conversation_repo.get_with_messages_or_raise(conversation_id)
 
         return self._to_conversation_detail_dict(conversation)
 
@@ -245,14 +258,14 @@ class ConversationService:
             创建的消息信息
         """
         # 确保会话存在
-        conversation = await self.conversation_repo.get_by_id(conversation_id)
+        conversation = await self._conversation_repo.get_by_id(conversation_id)
         if conversation is None:
-            conversation = await self.conversation_repo.create(
+            conversation = await self._conversation_repo.create(
                 conversation_id=conversation_id,
                 title="新对话",
             )
 
-        message = await self.message_repo.create(
+        message = await self._message_repo.create(
             conversation_id=conversation_id,
             role=role,
             content=content,
@@ -264,6 +277,110 @@ class ConversationService:
             "content": message.content,
             "created_at": message.created_at.isoformat() if message.created_at else None,
         }
+
+    async def persist_chat_turn(
+        self,
+        conversation_id: str,
+        user_query: str,
+        assistant_answer: str,
+        summary: Optional[str] = None,
+        provider: Optional[str] = None,
+    ) -> None:
+        """
+        持久化一轮对话（用户 + 助手 + 摘要）
+
+        - 自动确保会话存在（首次对话时自动创建）
+        - 自动从首条用户消息生成标题
+        - 失败仅写日志，不抛异常（持久化失败不应阻塞用户拿到响应）
+
+        Args:
+            conversation_id: 会话 ID
+            user_query: 用户消息
+            assistant_answer: 助手回答
+            summary: 可选摘要
+            provider: 模型提供商
+        """
+        if not conversation_id or not assistant_answer:
+            return
+
+        try:
+            existing = await self._conversation_repo.get_with_messages(conversation_id)
+            if existing is None:
+                first_user_text = (user_query or "").strip()
+                title = first_user_text[:_MAX_TITLE_LENGTH]
+                if len(first_user_text) > _MAX_TITLE_LENGTH:
+                    title += "..."
+                if not title:
+                    title = "新对话"
+                await self._conversation_repo.create(
+                    conversation_id=conversation_id,
+                    title=title,
+                    model_provider=provider or "tongyi",
+                )
+
+            if user_query:
+                await self._message_repo.create(
+                    conversation_id=conversation_id,
+                    role="user",
+                    content=user_query,
+                )
+            await self._message_repo.create(
+                conversation_id=conversation_id,
+                role="assistant",
+                content=assistant_answer,
+            )
+
+            if summary:
+                await self.update_conversation(conversation_id, summary=summary)
+
+            # 刷新 in-memory 缓存
+            refreshed = await self._conversation_repo.get_with_messages_or_raise(conversation_id)
+            raw = [
+                {"role": m.role, "content": m.content}
+                for m in sorted(refreshed.messages, key=lambda m: m.created_at or 0)
+            ]
+            from langchain_core.messages import HumanMessage as _HM, AIMessage as _AM
+
+            lcmsgs = []
+            for item in raw:
+                if item["role"] == "user":
+                    lcmsgs.append(_HM(content=item["content"]))
+                elif item["role"] == "assistant":
+                    lcmsgs.append(_AM(content=item["content"]))
+
+            from src.services.chat_service import get_chat_service
+            chat_svc = get_chat_service()
+            chat_svc.memory.save_messages(conversation_id, lcmsgs)
+            if summary:
+                chat_svc.memory.set_summary(conversation_id, summary)
+
+        except Exception as e:
+            logger.error(f"Failed to persist chat turn for {conversation_id}: {e}")
+
+    async def load_history_to_memory(self, session_id: str) -> None:
+        """
+        从 MySQL 加载历史到 in-memory 缓存
+
+        首次进入某会话时调用，避免下次同会话进来读不到刚写入的消息。
+
+        Args:
+            session_id: 会话 ID
+        """
+        if not session_id:
+            return
+
+        try:
+            conv = await self._conversation_repo.get_with_messages(session_id)
+            if conv is None:
+                return
+            raw = [
+                {"role": m.role, "content": m.content}
+                for m in sorted(conv.messages, key=lambda m: m.created_at or 0)
+            ]
+            from src.services.chat_service import get_chat_service
+            get_chat_service().memory.prime_from_persistence(session_id, raw)
+        except Exception as e:
+            logger.error(f"Failed to load history for {session_id}: {e}")
 
     def _to_conversation_dict(self, conversation) -> dict:
         """转换为会话字典"""

@@ -227,10 +227,16 @@ class KnowledgeBase:
             return None
 
     def ensure_built(self) -> None:
-        """确保向量存储已构建"""
+        """确保向量存储已构建（同步版，仅用于非异步上下文）"""
         if self._vectorstore is None and not self._build_attempted:
             self._build_attempted = True
             self._vectorstore = self._build_vectorstore()
+
+    async def aensure_built(self) -> None:
+        """确保向量存储已构建（异步版，不阻塞事件循环）"""
+        if self._vectorstore is None and not self._build_attempted:
+            self._build_attempted = True
+            self._vectorstore = await asyncio.to_thread(self._build_vectorstore)
 
     async def aretrieve(self, query: str, k: int = 4) -> List[str]:
         """
@@ -243,7 +249,7 @@ class KnowledgeBase:
         Returns:
             文档片段列表（按相似度排序）
         """
-        self.ensure_built()
+        await self.aensure_built()
         if self._vectorstore is None or not query.strip():
             return []
 

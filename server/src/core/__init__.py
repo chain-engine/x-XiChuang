@@ -8,10 +8,9 @@
 from .config import settings
 from .exceptions import (
     AppException,
-    BaseException,
     BusinessException,
-    BusinessError,
     SystemException,
+    BusinessError,
     SystemError,
     register_exception_handlers,
 )
@@ -26,7 +25,6 @@ __all__ = [
     "SystemException",
     "register_exception_handlers",
     # 向后兼容别名
-    "BaseException",
     "BusinessError",
     "SystemError",
 ]

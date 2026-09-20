@@ -38,6 +38,9 @@ api_router = APIRouter(prefix="/api")
 # 注册 v1 路由
 api_router.include_router(router)
 
+# 别名，方便外部直接引用 v1 路由
+api_v1_router = router
+
 
 __all__ = [
     "api_router",

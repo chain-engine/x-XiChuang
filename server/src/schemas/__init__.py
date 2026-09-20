@@ -29,6 +29,7 @@ from .common import (
     HealthResponse,
     VersionResponse,
 )
+from .enum import ModelProvider
 from .milvus import (
     CollectionInfo,
     DeleteRequest,
@@ -61,6 +62,8 @@ __all__ = [
     "BaseQuery",
     "HealthResponse",
     "VersionResponse",
+    # Enum
+    "ModelProvider",
     # Milvus schemas
     "CollectionInfo",
     "MilvusStatsResponse",

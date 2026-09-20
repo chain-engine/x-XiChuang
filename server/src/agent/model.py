@@ -7,26 +7,13 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import Tuple
 
 from langchain_openai import ChatOpenAI
 
 from src.core.config import Settings, settings
 from src.core.logger import logger
-
-
-class ModelProvider(str, Enum):
-    """
-    支持的模型提供商枚举
-    """
-
-    tongyi = "tongyi"      # 千问（默认）
-    deepseek = "deepseek"  # DeepSeek
-    glm = "glm"            # 智谱/GLM
-    doubao = "doubao"      # 火山/豆包
-    kimi = "kimi"          # 月之暗面/Kimi
-    mock = "mock"          # 本地Mock（用于测试）
+from src.schemas.enum import ModelProvider
 
 
 def build_chat_model(

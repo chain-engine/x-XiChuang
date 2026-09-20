@@ -29,6 +29,21 @@ from src.core.middleware import (
 from src.api.router import api_router
 
 
+# ============ IOC 容器配置 ============
+
+def _configure_container() -> None:
+    """配置依赖注入容器，注册服务接口到实现的映射。"""
+    from src.core.container import Container, Lifecycle
+    from src.services.base import IChatService, IMilvusService
+    from src.services.chat_service import ChatService
+    from src.services.milvus_service import MilvusService
+
+    container = Container.get_instance()
+    container.register(IChatService, ChatService, Lifecycle.SINGLETON)
+    container.register(IMilvusService, MilvusService, Lifecycle.SINGLETON)
+    logger.info("IOC container configured")
+
+
 # ============ 应用生命周期管理 ============
 
 @asynccontextmanager
@@ -42,6 +57,9 @@ async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("Starting application: %s v%s", settings.APP_NAME, settings.APP_VERSION)
     logger.info("Environment: %s, Debug: %s", settings.ENVIRONMENT, settings.DEBUG)
+
+    # 配置 IOC 容器
+    _configure_container()
 
     # 初始化数据库
     try:

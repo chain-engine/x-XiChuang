@@ -12,6 +12,7 @@ import time
 from datetime import datetime
 from typing import Any
 
+import fastapi
 from fastapi import APIRouter, Request
 
 from src.core.config import settings
@@ -121,7 +122,7 @@ async def get_version() -> VersionResponse:
             description="多模态智能助手",
         ),
         python=sys.version.split()[0],
-        fastapi="0.111.0",
+        fastapi=fastapi.__version__,
         environment=settings.ENVIRONMENT,
     )
 
