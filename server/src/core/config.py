@@ -41,7 +41,7 @@ def _to_float(value: str | None, default: float = 0.0) -> float:
 class AppConfig:
     """应用基础配置"""
     name: str = "西窗（XiChuang）"
-    version: str = "1.0.0"
+    version: str = "0.1.0"
     description: str = "多模态智能助手 - 支持文本、语音、图片、视频对话"
     environment: str = "development"
     debug: bool = True
@@ -58,9 +58,12 @@ class ServerConfig:
 class LoggingConfig:
     """日志配置"""
     level: str = "INFO"
-    dir: str = "logs"
-    retention_days: int = 7
+    file_path: str = "logs/app_{time:YYYY-MM-DD}.log"
+    rotation: str = "1 day"
+    retention: str = "7 days"
+    compression: str = "zip"
     format: str = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
+    console_output: bool = True
 
 
 @dataclass
@@ -154,7 +157,7 @@ class Settings:
         """从环境变量解析配置"""
         # ============ 应用基础配置 ============
         self.APP_NAME = os.getenv("APP_NAME", "西窗（XiChuang）")
-        self.APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
+        self.APP_VERSION = os.getenv("APP_VERSION", "0.1.0")
         self.ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
         self.DEBUG = _to_bool(os.getenv("DEBUG"))
         self.STRUCTURED = _to_bool(os.getenv("STRUCTURED"))
@@ -184,10 +187,14 @@ class Settings:
         self.LOG_DIR = os.getenv("LOG_DIR", "logs")
         self.LOG_RETENTION_DAYS = _to_int(os.getenv("LOG_RETENTION_DAYS"), 7)
 
+        log_dir = os.path.join(self.PROJECT_ROOT, self.LOG_DIR)
         self.logging = LoggingConfig(
             level=self.LOG_LEVEL,
-            dir=self.LOG_DIR,
-            retention_days=self.LOG_RETENTION_DAYS,
+            file_path=os.path.join(log_dir, "app_{time:YYYY-MM-DD}.log"),
+            rotation="1 day",
+            retention=f"{self.LOG_RETENTION_DAYS} days",
+            compression="zip",
+            console_output=self.IS_DEVELOPMENT,
         )
 
         # ============ CORS 配置 ============
@@ -380,6 +387,32 @@ class Settings:
     def LOG_DIR_PATH(self) -> Path:
         """获取日志目录"""
         return self.PROJECT_ROOT / self.LOG_DIR
+
+    @property
+    def is_development(self) -> bool:
+        """是否为开发环境"""
+        return self.ENVIRONMENT == "development"
+
+    @property
+    def is_production(self) -> bool:
+        """是否为生产环境"""
+        return self.ENVIRONMENT == "production"
+
+    @property
+    def is_testing(self) -> bool:
+        """是否为测试环境"""
+        return self.ENVIRONMENT == "testing"
+
+    def validate(self) -> list[str]:
+        """验证配置，返回错误列表"""
+        errors: list[str] = []
+        if self.server.port < 1 or self.server.port > 65535:
+            errors.append(f"Invalid server port: {self.server.port}")
+        if self.mysql.port < 1 or self.mysql.port > 65535:
+            errors.append(f"Invalid MySQL port: {self.mysql.port}")
+        if self.milvus.port < 1 or self.milvus.port > 65535:
+            errors.append(f"Invalid Milvus port: {self.milvus.port}")
+        return errors
 
     # ============ 模型配置验证 ============
 

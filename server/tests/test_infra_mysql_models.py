@@ -5,7 +5,8 @@ MySQL ORM 模型单元测试
 
 from datetime import datetime
 
-from src.infra.mysql.models import Base, Conversation, Message
+from src.infras.database import Base
+from src.models.entities import ConversationEntity as Conversation, MessageEntity as Message
 
 
 class TestConversationModel:

@@ -178,7 +178,7 @@ class TestCommonSchemas:
         """测试健康响应模型"""
         resp = HealthResponse(
             status="healthy",
-            version="1.0.0",
+            version="0.1.0",
             checks={"database": HealthStatus(status="healthy")}
         )
         assert resp.status == "healthy"
@@ -187,16 +187,16 @@ class TestCommonSchemas:
     def test_version_info(self):
         """测试版本信息模型"""
         info = VersionInfo(
-            version="1.0.0",
+            version="0.1.0",
             name="XiChuang",
             description="AI Assistant"
         )
-        assert info.version == "1.0.0"
+        assert info.version == "0.1.0"
 
     def test_version_response(self):
         """测试版本响应模型"""
         resp = VersionResponse(
-            app=VersionInfo(version="1.0.0", name="XiChuang", description=""),
+            app=VersionInfo(version="0.1.0", name="XiChuang", description=""),
             python="3.11.0",
             fastapi="0.111.0",
             environment="development"

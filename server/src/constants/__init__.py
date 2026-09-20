@@ -5,19 +5,23 @@
 统一管理所有常量，包括枚举、业务状态码等。
 """
 
-from .base import BaseEnum
+from .base import MSG_INTERNAL_ERROR, MSG_SUCCESS, MSG_VALIDATION_ERROR, BaseEnum
 from .enums import (
     ConversationStatus,
+    ErrorCodeEnum,
     MediaType,
     MessageRole,
     ModelProvider,
     ResponseCode,
+    ResponseCodeEnum,
     StorageType,
     TaskStatus,
 )
-from .codes import ErrorCodeEnum, ResponseCodeEnum
 
 __all__ = [
+    # 消息常量
+    "MSG_SUCCESS",
+    "MSG_INTERNAL_ERROR",
     # 基类
     "BaseEnum",
     # 枚举类

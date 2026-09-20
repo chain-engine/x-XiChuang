@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.logger import logger
-from src.infras.mysql import get_async_db
+from src.infras.database import get_async_db
 from src.schemas.conversation import (
     ConversationCreate,
     ConversationDetailResponse,

@@ -16,7 +16,7 @@ from sqlalchemy.orm import selectinload
 
 from src.core.exceptions import ConflictError, NotFoundError, QueryError
 from src.core.logger import logger
-from src.infras.mysql.models import Conversation, Message
+from src.models.entities import ConversationEntity as Conversation, MessageEntity as Message
 from .base import BaseRepository
 
 

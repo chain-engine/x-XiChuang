@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from src.core.logger import logger
-from src.infras import MilvusClient, get_milvus_client
+from src.infras import VectorStoreProvider, get_vector_store_provider
 
 
 class MilvusService:
@@ -18,22 +18,23 @@ class MilvusService:
     Milvus 数据管理服务
 
     封装 Milvus 向量数据库的业务操作。
+    依赖抽象接口 VectorStoreProvider，可替换为任意实现。
     """
 
-    def __init__(self, client: Optional[MilvusClient] = None) -> None:
+    def __init__(self, client: Optional[VectorStoreProvider] = None) -> None:
         """
         初始化 Milvus 服务
 
         Args:
-            client: Milvus 客户端实例（可选，默认使用全局实例）
+            client: 向量存储实例（可选，默认使用工厂创建）
         """
         self._client = client
 
     @property
-    def client(self) -> MilvusClient:
-        """获取 Milvus 客户端（懒加载）"""
+    def client(self) -> VectorStoreProvider:
+        """获取向量存储实例（懒加载）"""
         if self._client is None:
-            self._client = get_milvus_client()
+            self._client = get_vector_store_provider()
         return self._client
 
     async def get_stats(self) -> dict[str, Any]:

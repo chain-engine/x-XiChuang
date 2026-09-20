@@ -1,7 +1,5 @@
 # 西窗（XiChuang）
 
-> 在西窗下，与你对话
-
 <p>
 <img src="https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white" alt="Python" />
 <img src="https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi&logoColor=white" alt="FastAPI" />

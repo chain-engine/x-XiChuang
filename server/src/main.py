@@ -18,13 +18,15 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.core.config import settings
-from src.core.logger import logger
+from src.core.exceptions import register_exception_handlers
+from src.core.logger import logger, setup_logging
 from src.core.middleware import (
-    ExceptionHandlerMiddleware,
+    ApiKeyMiddleware,
+    ExceptionHandlingMiddleware,
+    RequestIDMiddleware,
     RequestLoggingMiddleware,
-    TraceIDMiddleware,
 )
-from src.api.route import api_router
+from src.api.router import api_router
 
 
 # ============ 应用生命周期管理 ============
@@ -37,12 +39,13 @@ async def lifespan(app: FastAPI):
     包含启动和关闭时的资源初始化和清理逻辑。
     """
     # 启动时
+    setup_logging()
     logger.info("Starting application: %s v%s", settings.APP_NAME, settings.APP_VERSION)
     logger.info("Environment: %s, Debug: %s", settings.ENVIRONMENT, settings.DEBUG)
 
     # 初始化数据库
     try:
-        from src.infras.mysql import async_init_db
+        from src.infras.database import async_init_db
         await async_init_db()
         logger.info("Database initialized successfully")
     except Exception as e:
@@ -58,8 +61,8 @@ async def lifespan(app: FastAPI):
 
     # 关闭数据库连接
     try:
-        from src.infras.mysql import async_engine
-        await async_engine.dispose()
+        from src.infras.database import async_engine
+        await async_engine().dispose()
         logger.info("Database connections closed")
     except Exception as e:
         logger.warning("Error closing database: %s", e)
@@ -84,14 +87,13 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
 
-    # ============ 注册中间件 ============
+    # ============ 注册异常处理器 ============
+    register_exception_handlers(app)
 
+    # ============ 注册中间件 ============
     # CORS 中间件
-    # 浏览器规范：当 allow_credentials=True 时，allow_origins 不能是通配符 *
-    # 这里在配置为 * 且开启 credentials 时自动降级为反射模式（不安全但兼容开发环境）
     cors_origins = settings.CORS_ORIGINS
     if settings.CORS_ALLOW_CREDENTIALS and "*" in cors_origins:
-        # 反射 Origin（仅开发用；生产应该配置具体域名）
         cors_origins = ["http://localhost:5173", "http://localhost:8000", "http://127.0.0.1:5173", "http://127.0.0.1:8000"]
 
     app.add_middleware(
@@ -106,10 +108,13 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggingMiddleware)
 
     # 异常处理中间件
-    app.add_middleware(ExceptionHandlerMiddleware)
+    app.add_middleware(ExceptionHandlingMiddleware)
 
-    # 追踪 ID 中间件
-    app.add_middleware(TraceIDMiddleware)
+    # API Key 鉴权中间件
+    app.add_middleware(ApiKeyMiddleware)
+
+    # 请求 ID 中间件
+    app.add_middleware(RequestIDMiddleware)
 
     # ============ 注册路由 ============
 

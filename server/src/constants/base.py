@@ -3,7 +3,14 @@
 枚举基类模块
 
 提供可描述枚举基类，支持标记值和描述信息的枚举类型。
+同时定义全局消息常量。
 """
+
+# ============ 全局消息常量 ============
+
+MSG_SUCCESS: str = "success"
+MSG_INTERNAL_ERROR: str = "Internal server error"
+MSG_VALIDATION_ERROR: str = "Validation failed"
 
 from enum import Enum
 from typing import Any

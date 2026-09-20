@@ -112,3 +112,16 @@ class SuccessResponse(BaseModel, Generic[T]):
     message: str = Field(default="success", description="成功消息")
     data: T | None = Field(None, description="响应数据")
     trace_id: str | None = Field(None, description="追踪ID")
+
+
+class ApiResponse(BaseModel, Generic[T]):
+    """统一 API 响应模型
+
+    用于 api/response.py 的 success_response / error_response 构造 JSONResponse。
+    """
+
+    code: int = Field(default=200, description="业务状态码")
+    message: str = Field(default="success", description="响应消息")
+    data: T | None = Field(default=None, description="响应数据")
+    timestamp: str | None = Field(default=None, description="响应时间戳")
+    request_id: str | None = Field(default=None, description="请求追踪ID")

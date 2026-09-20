@@ -145,9 +145,9 @@ async def _check_database() -> HealthStatus:
     """检查数据库连接"""
     start_time = time.perf_counter()
     try:
-        from src.infras.mysql import async_engine
+        from src.infras.database import async_engine
 
-        async with async_engine.connect() as conn:
+        async with async_engine().connect() as conn:
             from sqlalchemy import text
             await conn.execute(text("SELECT 1"))
 
@@ -171,9 +171,9 @@ async def _check_milvus() -> HealthStatus:
     """检查 Milvus 连接"""
     start_time = time.perf_counter()
     try:
-        from src.infras import get_milvus_client
+        from src.infras import get_vector_store_provider
 
-        client = get_milvus_client()
+        client = get_vector_store_provider()
         stats = client.get_stats()
 
         latency_ms = (time.perf_counter() - start_time) * 1000

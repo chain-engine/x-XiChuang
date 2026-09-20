@@ -2,134 +2,165 @@
 """
 日志模块
 
-提供统一的日志配置和记录功能，支持请求上下文追踪。
+提供统一的日志配置和记录功能，支持 JSON 结构化输出和控制台彩色输出。
 """
 
+import json
 import os
 import sys
-from contextvars import ContextVar
-from typing import Callable, Final
+from typing import Any, Callable, Final
 
 from loguru import logger
 
-# ============================================================================
-# 上下文变量
-# ============================================================================
-
-# 请求 ID 上下文变量
-request_id_var: ContextVar[str] = ContextVar("request_id", default="")
-
-# 会话 ID 上下文变量
-session_id_var: ContextVar[str] = ContextVar("session_id", default="")
+# 开发模式标识
+_DEV: bool = "development" in os.getenv("ENVIRONMENT", "development")
 
 
 # ============================================================================
-# 上下文管理函数
+# 日志目录路径
 # ============================================================================
 
-def generate_request_id() -> str:
-    """生成唯一的请求 ID"""
-    import uuid
-    return str(uuid.uuid4())[:8]
+
+def get_log_dir_path() -> str:
+    """获取日志目录的绝对路径"""
+    from src.core.config import settings
+
+    return str(settings.LOG_DIR_PATH)
 
 
-def bind_request_id(request_id: str) -> None:
-    """绑定请求 ID 到当前上下文"""
-    request_id_var.set(request_id)
+# ============================================================================
+# 辅助函数
+# ============================================================================
 
 
-def get_request_id() -> str:
-    """获取当前请求 ID"""
-    return request_id_var.get()
+def _get_client_ip(headers: dict[str, str]) -> str:
+    """从请求头中获取客户端真实 IP"""
+    forwarded = headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    real_ip = headers.get("x-real-ip", "")
+    if real_ip:
+        return real_ip
+    return "-"
 
 
-def bind_session_id(session_id: str) -> None:
-    """绑定会话 ID 到当前上下文"""
-    session_id_var.set(session_id)
-
-
-def get_session_id() -> str:
-    """获取当前会话 ID"""
-    return session_id_var.get()
-
-
-def clear_context() -> None:
-    """清除上下文变量"""
-    request_id_var.set("")
-    session_id_var.set("")
+def _mask_headers(headers: dict[str, str]) -> dict[str, str]:
+    """遮蔽敏感请求头"""
+    _SENSITIVE_KEYS = {"authorization", "cookie", "x-api-key", "x-token"}
+    return {k: ("***" if k.lower() in _SENSITIVE_KEYS else v) for k, v in headers.items()}
 
 
 # ============================================================================
 # 日志格式化器
 # ============================================================================
 
-class ContextFormatter:
-    """上下文感知的日志格式化器"""
 
-    def __call__(self, record: dict) -> str:
-        # 添加请求 ID 到日志记录
-        request_id = request_id_var.get()
-        if request_id:
-            record["extra"]["request_id"] = request_id
+def _json_formatter(record: dict[str, Any]) -> str:
+    """JSON 格式化器（文件输出）"""
+    from src.core.config import settings
 
-        # 添加会话 ID 到日志记录
-        session_id = session_id_var.get()
-        if session_id:
-            record["extra"]["session_id"] = session_id
+    record["extra"].setdefault("request_id", None)
+    record["extra"].setdefault("session_id", None)
 
-        return (
-            "{time:YYYY-MM-DD HH:mm:ss.SSS} | "
-            "{level: <8} | "
-            "{name}:{function}:{line} | "
-            "{extra[request_id]:[request_id]} "
-            "{extra[session_id]:|[session_id]} "
-            "- {message}\n"
-        )
+    log_record = {
+        "timestamp": record["time"].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+        "level": record["level"].name,
+        "logger": record["name"],
+        "function": record["function"],
+        "line": record["line"],
+        "message": record["message"],
+        "request_id": record["extra"]["request_id"],
+        "session_id": record["extra"]["session_id"],
+        "app": settings.APP_NAME,
+        "env": settings.ENVIRONMENT,
+    }
+    if record["exception"]:
+        log_record["exception"] = str(record["exception"])
+
+    return json.dumps(log_record, ensure_ascii=False) + "\n"
+
+
+def _console_format(record: dict[str, Any]) -> str:
+    """控制台格式化器（开发模式彩色输出）"""
+    record["extra"].setdefault("request_id", None)
+    record["extra"].setdefault("session_id", None)
+
+    colors = {
+        "DEBUG": "\033[36m",
+        "INFO": "\033[32m",
+        "WARNING": "\033[33m",
+        "ERROR": "\033[31m",
+        "CRITICAL": "\033[35m",
+    }
+    reset = "\033[0m"
+    level_color = colors.get(record["level"].name, "")
+    ts = record["time"].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    prefix = f"{level_color}{ts} | {record['level'].name:<8}{reset}"
+    location = f"{record['name']}:{record['function']}:{record['line']}"
+    req = f" [rid:{record['extra']['request_id']}]" if record["extra"]["request_id"] else ""
+    return f"{prefix} | {location}{req} - {record['message']}\n"
+
+
+def _json_serializer(obj: Any) -> str:
+    """JSON 序列化器（处理不可序列化的对象）"""
+    return str(obj)
 
 
 # ============================================================================
 # 日志配置
 # ============================================================================
 
-# 确保日志目录存在
-log_dir: Final[str] = 'logs'
-os.makedirs(log_dir, exist_ok=True)
-
 # 移除默认的处理器
 logger.remove()
 
-# 配置日志格式化器
-formatter = ContextFormatter()
+# 开发模式下添加控制台输出
+if _DEV:
+    logger.add(
+        sink=sys.stderr,
+        level="DEBUG",
+        format=_console_format,
+        colorize=True,
+    )
 
-# 配置日志输出到文件
-logger.add(
-    os.path.join(log_dir, 'x-langchain_{time}.log'),
-    rotation='1 day',
-    retention='7 days',
-    compression='zip',
-    level='INFO',
-    enqueue=True,
-    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {extra[request_id]:[request_id]} {extra[session_id]:|[session_id]} - {message}",
-)
 
-# 配置日志输出到控制台
-console_sink: Callable[[str], None] = lambda msg: print(msg, end="")
-logger.add(
-    sink=console_sink,
-    level='DEBUG',
-    enqueue=True,
-    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {extra[request_id]:[request_id]} {extra[session_id]:|[session_id]} - {message}",
-)
+def setup_logging() -> None:
+    """
+    初始化日志系统
 
-# 导出
+    应在应用启动时调用一次。从 Settings 读取配置，
+    添加文件日志 sink 和（非开发环境的）控制台 sink。
+    """
+    from src.core.config import settings
+
+    # 文件日志 — JSON 格式
+    file_path = settings.logging.file_path
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+    logger.add(
+        sink=file_path,
+        rotation=settings.logging.rotation,
+        retention=settings.logging.retention,
+        compression=settings.logging.compression,
+        level=settings.logging.level,
+        format=_json_formatter,
+        enqueue=True,
+    )
+
+    # 非开发环境：添加控制台输出
+    if not _DEV and settings.logging.console_output:
+        logger.add(
+            sink=sys.stderr,
+            level=settings.logging.level,
+            format=_json_formatter,
+            enqueue=True,
+        )
+
+
+# ============================================================================
+# 模块导出
+# ============================================================================
+
 __all__: Final[list[str]] = [
-    'logger',
-    'request_id_var',
-    'session_id_var',
-    'generate_request_id',
-    'bind_request_id',
-    'get_request_id',
-    'bind_session_id',
-    'get_session_id',
-    'clear_context',
+    "logger",
+    "setup_logging",
 ]

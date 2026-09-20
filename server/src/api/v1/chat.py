@@ -20,11 +20,9 @@ from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.auth import verify_api_key
 from src.core.config import settings
 from src.core.logger import logger
-from src.core.ratelimit import chat_rate_limiter
-from src.infras.mysql import get_async_db
+from src.infras.database import get_async_db
 from src.schemas.chat import (
     ChatMessage,
     ChatRequest,
@@ -206,10 +204,10 @@ async def _load_history_into_memory(session_id: str) -> None:
     try:
         from sqlalchemy.ext.asyncio import AsyncSession as _AS
 
-        from src.infras.mysql import AsyncSessionLocal
+        from src.infras.database import get_async_db
         from src.services.chat_service import get_chat_service
 
-        async with AsyncSessionLocal() as session:
+        async for session in get_async_db():
             service = ConversationService(session)
             conv = await service.conversation_repo.get_with_messages(session_id)
             if conv is None:
@@ -246,7 +244,7 @@ async def get_providers() -> ProvidersResponse:
     )
 
 
-@router.post("/message", response_model=ChatResponse, dependencies=[Depends(verify_api_key), Depends(chat_rate_limiter)])
+@router.post("/message", response_model=ChatResponse)
 async def chat_message(
     request: ChatRequest,
     x_model_provider: Annotated[Optional[str], Header(alias="X-Model-Provider")] = None,
@@ -324,7 +322,7 @@ async def chat_message(
     )
 
 
-@router.post("/stream", dependencies=[Depends(verify_api_key), Depends(chat_rate_limiter)])
+@router.post("/stream")
 async def chat_stream(
     request: ChatRequest,
     x_model_provider: Annotated[Optional[str], Header(alias="X-Model-Provider")] = None,
@@ -437,7 +435,7 @@ async def chat_stream(
     )
 
 
-@router.post("/upload", response_model=ChatResponse, dependencies=[Depends(verify_api_key), Depends(chat_rate_limiter)])
+@router.post("/upload", response_model=ChatResponse)
 async def chat_with_upload(
     session_id: str = Form(...),
     query: str = Form(""),

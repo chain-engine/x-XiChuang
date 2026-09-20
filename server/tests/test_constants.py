@@ -7,13 +7,14 @@ import pytest
 
 from src.constants.enums import (
     BaseEnum,
-    ResponseCode,
-    MessageRole,
+    ErrorCodeEnum,
     MediaType,
+    MessageRole,
     ModelProvider,
+    ResponseCode,
+    ResponseCodeEnum,
     TaskStatus,
 )
-from src.constants.codes import ResponseCodeEnum, ErrorCodeEnum
 
 
 class TestBaseEnum:

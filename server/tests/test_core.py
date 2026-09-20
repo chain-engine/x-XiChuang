@@ -6,14 +6,18 @@ Core 模块测试
 import pytest
 
 from src.core.config import Settings
+from src.api.response import error_response, success_response
 from src.core.exceptions import (
+    AppException,
     BaseException,
+    BusinessException,
     BusinessError,
+    SystemException,
     SystemError,
     NotFoundError,
     ValidationError,
 )
-from src.core.response import BaseResp, SuccessResp, ErrorResp, PaginatedData
+from src.schemas.common import ApiResponse, PaginatedResponse
 
 
 class TestSettings:
@@ -23,7 +27,7 @@ class TestSettings:
         """测试默认值"""
         settings = empty_settings
         assert settings.APP_NAME == "西窗（XiChuang）"
-        assert settings.APP_VERSION == "1.0.0"
+        assert settings.APP_VERSION == "0.1.0"
         assert settings.DEBUG is True
         assert settings.ENVIRONMENT == "development"
 
@@ -69,24 +73,30 @@ class TestSettings:
 class TestExceptions:
     """异常测试"""
 
-    def test_base_exception(self):
-        """测试基础异常"""
-        exc = BaseException("test error", code=500, detail="detail info")
+    def test_app_exception(self):
+        """测试应用异常基类"""
+        exc = AppException("test error", code=500, details="detail info")
         assert exc.message == "test error"
         assert exc.code == 500
-        assert exc.detail == "detail info"
+        assert exc.details == "detail info"
 
-    def test_business_error(self):
+    def test_business_exception(self):
         """测试业务异常"""
-        exc = BusinessError("validation failed", code=400)
+        exc = BusinessException("validation failed", code=400)
         assert exc.message == "validation failed"
         assert exc.code == 400
 
-    def test_system_error(self):
+    def test_system_exception(self):
         """测试系统异常"""
-        exc = SystemError("system error", code=500)
+        exc = SystemException("system error", code=500)
         assert exc.message == "system error"
         assert exc.code == 500
+
+    def test_backward_compat_aliases(self):
+        """测试向后兼容别名"""
+        assert BaseException is AppException
+        assert BusinessError is BusinessException
+        assert SystemError is SystemException
 
     def test_not_found_error(self):
         """测试未找到异常"""
@@ -100,37 +110,56 @@ class TestExceptions:
         assert exc.code == 400
 
 
+@pytest.fixture
+def mock_request():
+    """模拟 FastAPI Request 对象"""
+    from starlette.requests import Request
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "query_string": b"",
+        "headers": [],
+    }
+    request = Request(scope)
+    request.state.request_id = "test-request-id"
+    return request
+
+
 class TestResponse:
     """响应封装测试"""
 
-    def test_base_resp(self):
-        """测试基础响应"""
-        resp = BaseResp(code=0, message="success", data={"key": "value"})
+    def test_api_response(self):
+        """测试统一响应模型"""
+        resp = ApiResponse(code=0, message="success", data={"key": "value"})
         assert resp.code == 0
         assert resp.message == "success"
         assert resp.data == {"key": "value"}
 
-    def test_success_resp(self):
-        """测试成功响应"""
-        resp = SuccessResp(data={"id": 1})
-        assert resp.code == 0
-        assert resp.message == "success"
-        assert resp.data == {"id": 1}
-
-    def test_error_resp(self):
-        """测试错误响应"""
-        resp = ErrorResp.from_exception("error occurred", code=400, detail="details")
-        assert resp.code == 400
-        assert resp.message == "error occurred"
-        assert resp.detail == "details"
-
-    def test_paginated_data(self):
-        """测试分页数据"""
+    def test_paginated_response(self):
+        """测试分页响应模型"""
         items = [{"id": i} for i in range(10)]
-        paginated = PaginatedData.create(items=items, total=100, page=1, page_size=10)
+        paginated = PaginatedResponse.create(items=items, total=100, page=1, page_size=10)
 
         assert paginated.total == 100
         assert paginated.page == 1
         assert paginated.page_size == 10
         assert paginated.total_pages == 10
         assert len(paginated.items) == 10
+
+    def test_success_response(self, mock_request):
+        """测试成功响应构造"""
+        resp = success_response(data={"id": 1}, request=mock_request)
+        assert resp.status_code == 200
+        body = resp.body.decode()
+        assert '"code":200' in body
+        assert '"message":"success"' in body
+
+    def test_error_response(self, mock_request):
+        """测试错误响应构造"""
+        resp = error_response(request=mock_request, code=400, message="Bad request")
+        assert resp.status_code == 400
+        body = resp.body.decode()
+        assert '"code":400' in body
+        assert '"message":"Bad request"' in body

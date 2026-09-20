@@ -112,7 +112,7 @@ async def test_client() -> AsyncGenerator[AsyncClient, None]:
         del sys.modules[mod]
 
     # Mock 数据库初始化
-    with patch("src.infras.mysql.async_init_db", new_callable=AsyncMock):
+    with patch("src.infras.database.async_init_db", new_callable=AsyncMock):
         from src.main import app
         async with AsyncClient(
             transport=ASGITransport(app=app),
