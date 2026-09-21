@@ -1,7 +1,7 @@
 [project]
-name = "xichuang"
+name = "西窗（XiChuang）"
 version = "0.1.0"
-description = "A multimodal intelligent assistant supporting text, voice, image, and video. 「何当共剪西窗烛，却话巴山夜雨时」"
+description = "一款基于 LangChain + LangGraph + FastAPI 构建的多模态智能交互助手（A Production-Grade intelligent interactive assistant based on multimodal large language models）"
 authors = [
     { name = "John Young", email = "john.young@foxmail.com" }
 ]
@@ -61,7 +61,7 @@ dev = [
 ]
 
 [project.scripts]
-xichuang = "src.main:run"
+XiChuang = "src.main:run"
 
 [build-system]
 requires = ["hatchling"]
