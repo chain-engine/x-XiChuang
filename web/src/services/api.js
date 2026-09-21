@@ -47,7 +47,11 @@ export async function sendTextMessage({ session_id, query, provider }) {
     throw new Error(error || 'Request failed')
   }
 
-  return res.json()
+  const json = await res.json()
+  if (json && json.data) {
+    return json.data
+  }
+  return json
 }
 
 /**
@@ -127,7 +131,11 @@ export async function getProviders() {
     throw new Error(error || 'Request failed')
   }
 
-  return res.json()
+  const json = await res.json()
+  if (json && json.data) {
+    return json.data
+  }
+  return json
 }
 
 // ============ 会话相关 API ============
