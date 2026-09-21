@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "x-XiChuang",
-    "description": "西窗（XiChuang）多模态智能交互助手 API 文档\n\n基于 LangChain + LangGraph + FastAPI 构建的生产级 AI 应用后端服务。\n\n支持多模态交互、多模型适配、LangGraph 编排、智能记忆管理和 RAG 知识增强。",
+    "name": "西窗（XiChuang）",
+    "description": "一款基于 LangChain + LangGraph + FastAPI 构建的多模态智能交互助手",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "xichuang-server"
   },
@@ -41,7 +41,7 @@
   ],
   "item": [
     {
-      "name": "API",
+      "name": "api",
       "description": "所有 API 接口",
       "item": [
         {
