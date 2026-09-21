@@ -53,7 +53,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://gitee.com/yeyushilai/x-XiChuang.git
+git clone https://gitee.com/chain-engine/x-XiChuang.git
 
 # 进入后端项目目录
 cd x-XiChuang/server
@@ -649,4 +649,4 @@ MILVUS_PASSWORD=
 - **邮箱**：john.young@foxmail.com
 - **Gitee**：https://gitee.com/yeyushilai
 - **GitHub**：https://github.com/yeyushilai
-- **项目地址**：https://gitee.com/yeyushilai/x-XiChuang
+- **项目地址**：https://gitee.com/chain-engine/x-XiChuang

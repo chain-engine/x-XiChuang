@@ -278,4 +278,4 @@ Copyright (c) 2026 John Young
 - **Email**: john.young@foxmail.com
 - **Gitee**: https://gitee.com/yeyushilai
 - **GitHub**: https://github.com/yeyushilai
-- **Project**: https://github.com/yeyushilai/x-XiChuang
+- **Project**: https://github.com/chain-engine/x-XiChuang

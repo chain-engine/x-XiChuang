@@ -55,7 +55,7 @@ Positioned as a **production-grade AI backend service**, its core values include
 
 ```bash
 # Clone the repository
-git clone https://gitee.com/yeyushilai/x-XiChuang.git
+git clone https://gitee.com/chain-engine/x-XiChuang.git
 
 # Enter the backend project directory
 cd x-XiChuang/server
@@ -651,4 +651,4 @@ This project is licensed under the [MIT License](LICENSE).
 - **Email**: john.young@foxmail.com
 - **Gitee**: https://gitee.com/yeyushilai
 - **GitHub**: https://github.com/yeyushilai
-- **Project**: https://gitee.com/yeyushilai/x-XiChuang
+- **Project**: https://gitee.com/chain-engine/x-XiChuang
