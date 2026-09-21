@@ -136,8 +136,9 @@ def create_app() -> FastAPI:
 
     # ============ 注册路由 ============
 
-    # API 路由（统一前缀 /api）
-    app.include_router(api_router, prefix="/api")
+    # API 路由
+    # api_router 已在 router.py 中声明 prefix="/api"，此处不再重复
+    app.include_router(api_router)
 
     # ============ 静态文件挂载 ============
 

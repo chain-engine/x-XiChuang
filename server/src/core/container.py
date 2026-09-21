@@ -13,7 +13,8 @@
     - 循环依赖检测
 
 Usage:
-    from src.core.container import Container, Lifecycle
+    from src.constants.enums import Lifecycle
+    from src.core.container import Container
 
     container = Container.get_instance()
 
@@ -30,64 +31,12 @@ Usage:
         ...
 """
 
-from enum import Enum
 from typing import Any, Optional, TypeVar
 
+from src.constants.enums import Lifecycle
+from src.core.exceptions import CircularDependencyError, DependencyNotFoundError
+
 T = TypeVar("T")
-
-
-class Lifecycle(Enum):
-    """组件生命周期枚举。
-
-    Attributes:
-        SINGLETON: 单例模式，全局只创建一个实例
-        TRANSIENT: 多例模式，每次解析都创建新实例
-    """
-
-    SINGLETON = "singleton"
-    TRANSIENT = "transient"
-
-
-class DependencyNotFoundError(Exception):
-    """依赖未找到异常。
-
-    当容器无法解析某个依赖类型时抛出。
-
-    Attributes:
-        dependency_type: 未找到的依赖类型
-    """
-
-    def __init__(self, dependency_type: type) -> None:
-        """初始化依赖未找到异常。
-
-        Args:
-            dependency_type: 未找到的依赖类型
-        """
-        self.dependency_type: type = dependency_type
-        super().__init__(
-            f"Dependency not found: {dependency_type.__name__}. "
-            f"Please register it first using container.register()."
-        )
-
-
-class CircularDependencyError(Exception):
-    """循环依赖异常。
-
-    当检测到循环依赖时抛出。
-
-    Attributes:
-        dependency_chain: 依赖链
-    """
-
-    def __init__(self, dependency_chain: list[type]) -> None:
-        """初始化循环依赖异常。
-
-        Args:
-            dependency_chain: 产生循环的依赖类型链
-        """
-        self.dependency_chain: list[type] = dependency_chain
-        chain_str: str = " -> ".join(t.__name__ for t in dependency_chain)
-        super().__init__(f"Circular dependency detected: {chain_str}")
 
 
 class Container:

@@ -504,10 +504,10 @@ uv run mypy .
 | `/api/health/live` | GET | 存活探针 |
 | `/api/health/ready` | GET | 就绪探针 |
 | `/api/version` | GET | 版本信息 |
-| `/api/chat/message` | POST | 标准对话 |
-| `/api/chat/stream` | POST | 流式对话 |
-| `/api/chat/upload` | POST | 文件上传对话 |
-| `/api/chat/providers` | GET | 可用模型列表 |
+| `/api/conversations/message` | POST | 标准对话 |
+| `/api/conversations/stream` | POST | 流式对话 |
+| `/api/conversations/upload` | POST | 文件上传对话 |
+| `/api/conversations/providers` | GET | 可用模型列表 |
 | `/api/conversations` | GET/POST | 会话列表/创建 |
 | `/api/conversations/{id}` | GET/PUT/DELETE | 会话操作 |
 | `/api/milvus/stats` | GET | Milvus 统计 |

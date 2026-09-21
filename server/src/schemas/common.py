@@ -2,12 +2,27 @@
 """
 通用 Schema 定义
 
-包含跨模块使用的通用模型。
+包含跨模块使用的通用基础模型，包括：
+- 分页参数基类 ``PageQuery``
+- 排序参数基类 ``SortQuery``
+- 统一响应模型 ``ApiResponse``（供序列化 / 测试使用，路由层应使用 api/response.py）
+
+使用示例::
+
+    class MyListQuery(PageQuery, SortQuery):
+        keyword: str | None = None
+
+    # API 层接收参数后透传给 service：
+    items, total = await service.list_items(
+        limit=query.page_size,
+        offset=(query.page - 1) * query.page_size,
+        order_by=query.order_by,
+        order_desc=query.order_desc,
+    )
 """
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
@@ -15,15 +30,53 @@ from pydantic import BaseModel, Field
 T = TypeVar("T")
 
 
-class BaseQuery(BaseModel):
-    """基础查询参数"""
+# ============ 分页 / 排序 / 过滤参数基类 ============
 
-    page: int = Field(default=1, ge=1, description="当前页码")
-    page_size: int = Field(default=20, ge=1, le=100, description="每页大小")
+
+class PageQuery(BaseModel):
+    """
+    分页参数基类
+
+    所有需要分页的查询 Schema 应继承此类。
+    API 层仅接收参数，不做分页计算，透传给 service 层。
+    """
+
+    page: int = Field(default=1, ge=1, description="当前页码，从 1 开始")
+    page_size: int = Field(default=20, ge=1, le=100, description="每页大小，最大 100")
+
+
+class SortQuery(BaseModel):
+    """
+    排序参数基类
+
+    所有需要排序的查询 Schema 应继承此类。
+    """
+
+    order_by: str = Field(default="created_at", description="排序字段名")
+    order_desc: bool = Field(default=True, description="是否降序排列，true=DESC")
+
+
+class FilterQuery(BaseModel):
+    """
+    过滤参数基类
+
+    提供通用的关键词搜索字段，子类可扩展更多过滤条件。
+    """
+
+    keyword: str | None = Field(default=None, description="关键词搜索（模糊匹配）")
+
+
+# ============ 统一响应模型 ============
+# 注意：路由层应使用 api/response.py 的 success_response / error_response
+#       构造 JSONResponse。以下模型仅用于类型标注、序列化和单元测试。
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
-    """分页响应"""
+    """
+    分页响应数据体
+
+    用于 api/response.py 的 paginated_response 构造分页 data 字段。
+    """
 
     items: list[T] = Field(default_factory=list, description="数据列表")
     total: int = Field(default=0, description="总记录数")
@@ -50,74 +103,12 @@ class PaginatedResponse(BaseModel, Generic[T]):
         )
 
 
-class HealthStatus(BaseModel):
-    """健康状态详情"""
-
-    status: str = Field(..., description="状态：healthy/unhealthy/degraded")
-    latency_ms: float | None = Field(None, description="延迟（毫秒）")
-    message: str | None = Field(None, description="状态消息")
-
-
-class HealthResponse(BaseModel):
-    """健康检查响应"""
-
-    status: str = Field(..., description="整体状态：healthy/unhealthy/degraded")
-    version: str = Field(..., description="应用版本")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="检查时间")
-    checks: dict[str, HealthStatus] = Field(
-        default_factory=dict,
-        description="各组件健康状态"
-    )
-
-
-class VersionInfo(BaseModel):
-    """版本信息"""
-
-    version: str = Field(..., description="应用版本")
-    name: str = Field(..., description="应用名称")
-    description: str = Field(..., description="应用描述")
-
-
-class VersionResponse(BaseModel):
-    """版本信息响应"""
-
-    app: VersionInfo = Field(..., description="应用信息")
-    python: str = Field(..., description="Python 版本")
-    fastapi: str = Field(..., description="FastAPI 版本")
-    environment: str = Field(..., description="运行环境")
-
-
-class ErrorDetail(BaseModel):
-    """错误详情"""
-
-    code: int = Field(..., description="错误码")
-    message: str = Field(..., description="错误消息")
-    detail: str | None = Field(None, description="详细错误信息")
-    trace_id: str | None = Field(None, description="追踪ID")
-
-
-class ErrorResponse(BaseModel):
-    """错误响应"""
-
-    code: int = Field(..., description="业务状态码")
-    message: str = Field(..., description="错误消息")
-    trace_id: str | None = Field(None, description="追踪ID")
-    detail: str | None = Field(None, description="详细错误信息")
-
-
-class SuccessResponse(BaseModel, Generic[T]):
-    """成功响应"""
-
-    code: int = Field(default=0, description="业务状态码")
-    message: str = Field(default="success", description="成功消息")
-    data: T | None = Field(None, description="响应数据")
-    trace_id: str | None = Field(None, description="追踪ID")
-
-
 class ApiResponse(BaseModel, Generic[T]):
-    """统一 API 响应模型
+    """
+    统一 API 响应模型（BaseResp）
 
     用于 api/response.py 的 success_response / error_response 构造 JSONResponse。
+    路由层不应直接实例化此类，而是调用 api/response.py 中的工具函数。
     """
 
     code: int = Field(default=200, description="业务状态码")

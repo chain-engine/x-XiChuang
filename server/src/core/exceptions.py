@@ -3,6 +3,28 @@
 全局异常定义模块
 
 定义应用异常层次结构，提供全局异常处理器注册。
+
+职责：
+1. 定义统一的异常类层次（AppException -> BusinessException / SystemException）
+2. 注册全局异常处理器，将所有异常转换为标准 JSONResponse
+3. 404、405、500、限流、权限等异常全部在此捕获，**不对外暴露原始堆栈**
+
+异常层次::
+
+    AppException
+    ├── BusinessException (4xx)
+    │   ├── NotFoundError (404)
+    │   ├── ValidationError (400)
+    │   ├── UnauthorizedError (401)
+    │   ├── ForbiddenError (403)
+    │   ├── ConflictError (409)
+    │   └── RateLimitError (429)
+    └── SystemException (5xx)
+        ├── DatabaseError
+        ├── ExternalServiceError
+        ├── EmbeddingError
+        ├── GenerationError
+        └── ...
 """
 
 from __future__ import annotations
@@ -81,11 +103,6 @@ class SystemException(AppException):
         details: Any = None,
     ) -> None:
         super().__init__(message, code, status_code, details)
-
-
-# 向后兼容别名（不覆盖 Python 内置名称）
-BusinessError = BusinessException
-SystemError = SystemException
 
 
 # ============================================================================
@@ -232,10 +249,6 @@ class DatabaseConnectionError(DatabaseError):
         super().__init__(message, details)
 
 
-# 向后兼容别名
-ConnectionError = DatabaseConnectionError
-
-
 class QueryError(DatabaseError):
     """查询异常"""
 
@@ -262,13 +275,9 @@ class ServiceTimeoutError(ExternalServiceError):
         super().__init__(message, details)
 
 
-# 向后兼容别名
-TimeoutError = ServiceTimeoutError
-
-
 # ============================================================================
 # 配置相关异常
-# ============================================================================
+# =============================================================================
 
 
 class ConfigurationError(SystemException):
@@ -285,8 +294,53 @@ class MissingConfigError(ConfigurationError):
         super().__init__(message, details)
 
 
-# ============================================================================
-# 存储相关异常
+# ============================================================================# 依赖注入相关异常
+# =============================================================================
+
+
+class DependencyNotFoundError(Exception):
+    """依赖未找到异常。
+
+    当容器无法解析某个依赖类型时抛出。
+
+    Attributes:
+        dependency_type: 未找到的依赖类型
+    """
+
+    def __init__(self, dependency_type: type) -> None:
+        """初始化依赖未找到异常。
+
+        Args:
+            dependency_type: 未找到的依赖类型
+        """
+        self.dependency_type: type = dependency_type
+        super().__init__(
+            f"Dependency not found: {dependency_type.__name__}. "
+            f"Please register it first using container.register()."
+        )
+
+
+class CircularDependencyError(Exception):
+    """循环依赖异常。
+
+    当检测到循环依赖时抛出。
+
+    Attributes:
+        dependency_chain: 依赖链
+    """
+
+    def __init__(self, dependency_chain: list[type]) -> None:
+        """初始化循环依赖异常。
+
+        Args:
+            dependency_chain: 产生循环的依赖类型链
+        """
+        self.dependency_chain: list[type] = dependency_chain
+        chain_str: str = " -> ".join(t.__name__ for t in dependency_chain)
+        super().__init__(f"Circular dependency detected: {chain_str}")
+
+
+# ============================================================================# 存储相关异常
 # ============================================================================
 
 
@@ -311,7 +365,15 @@ class StorageFileNotFoundError(StorageError):
 
 def register_exception_handlers(app: "FastAPI") -> None:
     """
-    注册全局异常处理器
+    注册全局异常处理器。
+
+    统一捕获以下异常并转换为标准 JSONResponse（BaseResp 格式），
+    **不对外暴露原始服务堆栈**：
+
+    - ``AppException``           → 自定义业务/系统异常
+    - ``RequestValidationError`` → 请求参数校验异常（422）
+    - ``StarletteHTTPException`` → HTTP 异常（404 / 405 等）
+    - ``Exception``              → 未捕获的系统异常（500）
 
     Args:
         app: FastAPI 应用实例
@@ -324,7 +386,7 @@ def register_exception_handlers(app: "FastAPI") -> None:
 
     @app.exception_handler(AppException)
     async def _app_exception_handler(request: "Request", exc: AppException) -> Any:
-        """处理自定义应用异常"""
+        """处理自定义应用异常（业务异常 + 系统异常）"""
         return error_response(
             request=request,
             code=exc.status_code,
@@ -336,7 +398,7 @@ def register_exception_handlers(app: "FastAPI") -> None:
     async def _validation_exception_handler(
         request: "Request", exc: RequestValidationError
     ) -> Any:
-        """处理请求参数校验异常"""
+        """处理请求参数校验异常（Pydantic / FastAPI 自动校验失败）"""
         return error_response(
             request=request,
             code=422,
@@ -348,24 +410,54 @@ def register_exception_handlers(app: "FastAPI") -> None:
     async def _http_exception_handler(
         request: "Request", exc: StarletteHTTPException
     ) -> Any:
-        """处理 HTTP 异常"""
+        """
+        处理 HTTP 异常。
+
+        覆盖 404（Not Found）、405（Method Not Allowed）等场景，
+        全部转换为标准 JSONResponse，不返回 HTML 默认页面。
+        """
+        message = str(exc.detail) if exc.detail else _http_status_message(exc.status_code)
         return error_response(
             request=request,
             code=exc.status_code,
-            message=str(exc.detail),
+            message=message,
         )
 
     @app.exception_handler(Exception)
     async def _generic_exception_handler(request: "Request", exc: Exception) -> Any:
-        """处理未捕获的异常"""
-        from loguru import logger
+        """
+        处理未捕获的异常。
 
-        logger.exception(f"Unhandled exception: {exc}")
+        所有未预期的异常统一返回 500，不对外暴露堆栈信息。
+        """
+        from loguru import logger as _logger
+
+        _logger.exception(f"Unhandled exception: {exc}")
         return error_response(
             request=request,
             code=500,
             message=MSG_INTERNAL_ERROR,
         )
+
+
+def _http_status_message(status_code: int) -> str:
+    """根据 HTTP 状态码返回默认描述（不暴露内部信息）"""
+    _messages: dict[int, str] = {
+        400: "Bad request",
+        401: "Unauthorized",
+        403: "Forbidden",
+        404: "Resource not found",
+        405: "Method not allowed",
+        408: "Request timeout",
+        409: "Resource conflict",
+        413: "Payload too large",
+        422: "Validation failed",
+        429: "Rate limit exceeded",
+        500: "Internal server error",
+        502: "Bad gateway",
+        503: "Service unavailable",
+    }
+    return _messages.get(status_code, "Unknown error")
 
 
 # ============================================================================
@@ -377,9 +469,6 @@ __all__: Final[list[str]] = [
     "AppException",
     "BusinessException",
     "SystemException",
-    # 向后兼容别名
-    "BusinessError",
-    "SystemError",
     # 通用业务异常
     "NotFoundError",
     "ValidationError",

@@ -11,9 +11,10 @@ from typing import Any, Optional
 
 from src.core.logger import logger
 from src.infras import VectorStoreProvider, get_vector_store_provider
+from .base import IMilvusService
 
 
-class MilvusService:
+class MilvusService(IMilvusService):
     """
     Milvus 数据管理服务
 
@@ -197,18 +198,13 @@ class MilvusService:
             raise
 
 
-# 全局服务实例
-_milvus_service: Optional[MilvusService] = None
-
-
 def get_milvus_service() -> MilvusService:
     """
-    获取全局 Milvus 服务实例
+    从 IOC 容器获取全局 Milvus 服务实例
 
     Returns:
         MilvusService 实例
     """
-    global _milvus_service
-    if _milvus_service is None:
-        _milvus_service = MilvusService()
-    return _milvus_service
+    from src.core.container import Container
+    from .base import IMilvusService
+    return Container.get_instance().resolve(IMilvusService)

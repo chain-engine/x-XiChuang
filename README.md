@@ -70,7 +70,6 @@ x-XiChuang/
 │   │   │   ├── route.py           # 路由聚合
 │   │   │   └── v1/
 │   │   │       ├── health.py      # 健康检查
-│   │   │       ├── chat.py        # 聊天 API
 │   │   │       ├── conversations.py
 │   │   │       └── milvus.py
 │   │   │
@@ -138,8 +137,7 @@ graph LR
     subgraph API["API 层"]
         ROUTE["route.py<br/>路由聚合"]
         HEALTH["health.py<br/>健康检查"]
-        CHAT_API["chat.py<br/>聊天"]
-        CONV_API["conversations.py<br/>会话"]
+        CONV_API["conversations.py<br/>会话+对话"]
         MILVUS_API["milvus.py<br/>Milvus"]
     end
 
@@ -197,15 +195,14 @@ graph LR
 
     %% API 层依赖
     ROUTE --> HEALTH
-    ROUTE --> CHAT_API
     ROUTE --> CONV_API
     ROUTE --> MILVUS_API
 
-    CHAT_API --> CHAT_SCHEMA
+    CONV_API --> CHAT_SCHEMA
     CONV_API --> CONV_SCHEMA
     MILVUS_API --> MILVUS_SCHEMA
 
-    CHAT_API --> CHAT_SVC
+    CONV_API --> CHAT_SVC
     CONV_API --> CONV_SVC
     MILVUS_API --> MILVUS_SVC
 
@@ -269,8 +266,7 @@ graph TB
 
     subgraph API[API 层]
         HEALTH[健康检查]
-        CHAT[聊天路由]
-        CONV[会话路由]
+        CONV[会话+对话路由]
         MILVUS[Milvus路由]
     end
 
@@ -504,10 +500,10 @@ uv run mypy .
 | `/api/health/live` | GET | 存活探针 |
 | `/api/health/ready` | GET | 就绪探针 |
 | `/api/version` | GET | 版本信息 |
-| `/api/chat/message` | POST | 标准对话 |
-| `/api/chat/stream` | POST | 流式对话 |
-| `/api/chat/upload` | POST | 文件上传对话 |
-| `/api/chat/providers` | GET | 可用模型列表 |
+| `/api/conversations/message` | POST | 标准对话 |
+| `/api/conversations/stream` | POST | 流式对话 |
+| `/api/conversations/upload` | POST | 文件上传对话 |
+| `/api/conversations/providers` | GET | 可用模型列表 |
 | `/api/conversations` | GET/POST | 会话列表/创建 |
 | `/api/conversations/{id}` | GET/PUT/DELETE | 会话操作 |
 | `/api/milvus/stats` | GET | Milvus 统计 |

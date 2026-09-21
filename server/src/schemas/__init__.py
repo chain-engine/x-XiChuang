@@ -26,10 +26,14 @@ from .conversation import (
 )
 from .common import (
     BaseQuery,
+)
+from .health import (
     HealthResponse,
+    HealthStatus,
+    VersionInfo,
     VersionResponse,
 )
-from .enum import ModelProvider
+from src.constants.enums import ModelProvider
 from .milvus import (
     CollectionInfo,
     DeleteRequest,
@@ -60,7 +64,10 @@ __all__ = [
     "SaveMessagesRequest",
     # Common schemas
     "BaseQuery",
+    # Health schemas
     "HealthResponse",
+    "HealthStatus",
+    "VersionInfo",
     "VersionResponse",
     # Enum
     "ModelProvider",

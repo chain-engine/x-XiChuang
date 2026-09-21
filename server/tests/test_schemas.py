@@ -24,10 +24,12 @@ from src.schemas.conversation import (
 )
 from src.schemas.common import (
     BaseQuery,
+)
+from src.schemas.health import (
     HealthResponse,
     HealthStatus,
-    VersionResponse,
     VersionInfo,
+    VersionResponse,
 )
 from src.schemas.milvus import (
     CollectionInfo,

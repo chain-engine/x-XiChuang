@@ -3,6 +3,11 @@
 会话 Schema 定义
 
 包含会话和消息管理的请求和响应模型。
+
+Schema 分层：
+- 请求 Schema（*Request / *Query）：负责参数格式校验
+- 响应 Schema（*Response）：负责输出结构定义
+- 分页查询 Schema 继承 ``PageQuery`` + ``SortQuery``，API 层仅接收并透传
 """
 
 from __future__ import annotations
@@ -12,11 +17,16 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from src.schemas.common import PageQuery, SortQuery
+
+
+# ============ 消息 Schema ============
+
 
 class MessageCreate(BaseModel):
     """创建消息请求"""
 
-    role: str = Field(..., description="消息角色：user/assistant/system")
+    role: str = Field(..., description="消息角色：user / assistant / system")
     content: str = Field(..., description="消息内容", min_length=1)
     metadata: dict[str, Any] | None = Field(None, description="消息元数据")
 
@@ -32,15 +42,22 @@ class MessageResponse(BaseModel):
     """消息响应"""
 
     id: int | None = Field(None, description="消息ID")
-    role: str = Field(..., description="消息角色")
+    role: str = Field(..., description="消息角色：user / assistant / system")
     content: str = Field(..., description="消息内容")
     created_at: datetime | None = Field(None, description="创建时间")
     updated_at: datetime | None = Field(None, description="更新时间")
     metadata: dict[str, Any] | None = Field(None, description="消息元数据")
 
 
+# ============ 会话 Schema ============
+
+
 class ConversationCreate(BaseModel):
-    """创建会话请求"""
+    """
+    创建会话请求
+
+    用于 ``POST /api/v1/conversations``。
+    """
 
     id: str | None = Field(None, description="会话ID（可选，不提供则自动生成）")
     title: str = Field(default="新对话", description="会话标题")
@@ -59,7 +76,11 @@ class ConversationCreate(BaseModel):
 
 
 class ConversationUpdate(BaseModel):
-    """更新会话请求"""
+    """
+    更新会话请求
+
+    用于 ``POST /api/v1/conversations/{id}/update``。
+    """
 
     title: str | None = Field(None, description="会话标题")
     summary: str | None = Field(None, description="会话摘要")
@@ -108,25 +129,44 @@ class ConversationListResponse(BaseModel):
     page_size: int = Field(default=20, description="每页大小")
 
 
-class ConversationQuery(BaseModel):
-    """会话查询参数"""
+# ============ 查询 / 操作 Schema ============
 
-    page: int = Field(default=1, ge=1, description="当前页码")
-    page_size: int = Field(default=20, ge=1, le=100, description="每页大小")
-    keyword: str | None = Field(None, description="搜索关键词")
+
+class ConversationQuery(PageQuery, SortQuery):
+    """
+    会话列表查询参数
+
+    用于 ``GET /api/v1/conversations``，继承分页和排序基类。
+    API 层仅接收参数并透传给 service 层，不做分页计算。
+    """
+
+    keyword: str | None = Field(None, description="搜索关键词（匹配标题）")
     model_provider: str | None = Field(None, description="按模型提供商筛选")
-    order_by: str = Field(default="updated_at", description="排序字段")
-    order_desc: bool = Field(default=True, description="是否降序")
 
 
 class SaveMessagesRequest(BaseModel):
-    """保存消息请求"""
+    """
+    保存消息请求
+
+    用于 ``POST /api/v1/conversations/{id}/messages``。
+    """
 
     messages: list[MessageCreate] = Field(..., description="消息列表", min_length=1)
     clear_existing: bool = Field(
         default=False,
         description="是否清除现有消息（默认追加）"
     )
+
+
+class DeleteConversationRequest(BaseModel):
+    """
+    删除会话请求
+
+    用于 ``POST /api/v1/conversations/{id}/delete``。
+    PUT/DELETE 语义统一使用 POST 提交。
+    """
+
+    pass
 
 
 class DeleteConversationResponse(BaseModel):

@@ -1,6 +1,4 @@
-// 后端所有路由都挂在 /api/v1/... 下（见 server/src/api/route.py）
-// 旧版本用 /api 前缀，后端实际是 /api/v1，会导致 404
-const BASE_URL = '/api/v1/chat'
+// 后端所有路由都挂在 /api/v1/... 下（见 server/src/api/router.py）
 const CONVERSATIONS_URL = '/api/v1/conversations'
 const MILVUS_URL = '/api/v1/milvus'
 
@@ -10,7 +8,7 @@ const MILVUS_URL = '/api/v1/milvus'
  * @returns {Promise<{answer: string, session_id: string, summary?: string}>}
  */
 export async function sendMessage(formData) {
-  const res = await fetch(`${BASE_URL}/upload`, {
+  const res = await fetch(`${CONVERSATIONS_URL}/upload`, {
     method: 'POST',
     body: formData
   })
@@ -32,7 +30,7 @@ export async function sendMessage(formData) {
  * @returns {Promise<{answer: string, session_id: string, summary?: string}>}
  */
 export async function sendTextMessage({ session_id, query, provider }) {
-  const res = await fetch(`${BASE_URL}/message`, {
+  const res = await fetch(`${CONVERSATIONS_URL}/message`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -60,7 +58,7 @@ export async function sendTextMessage({ session_id, query, provider }) {
  * @returns {Promise<string>} 完整的回答
  */
 export async function sendMessageStream({ session_id, query, provider }, { onChunk, onDone, onError }) {
-  const res = await fetch(`${BASE_URL}/stream`, {
+  const res = await fetch(`${CONVERSATIONS_URL}/stream`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -118,7 +116,7 @@ export async function sendMessageStream({ session_id, query, provider }, { onChu
  * @returns {Promise<{providers: Array<{name: string, display_name: string, available: boolean}>, default: string}>}
  */
 export async function getProviders() {
-  const res = await fetch(`${BASE_URL}/providers`)
+  const res = await fetch(`${CONVERSATIONS_URL}/providers`)
 
   if (!res.ok) {
     const error = await res.text()

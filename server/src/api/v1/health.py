@@ -3,27 +3,40 @@
 健康检查路由
 
 提供系统健康检查和版本信息接口。
+
+职责边界：
+- 本文件仅处理 HTTP 请求接入，**不实现任何业务逻辑**
+- 所有检查逻辑委托给 ``services/health_service.py``
+- 所有响应使用 ``api/response.py`` 的统一响应封装
+
+接口列表：
+- ``GET /health``         — 完整健康检查（数据库、缓存连通状态）
+- ``GET /health/live``    — 存活探针（Kubernetes liveness probe）
+- ``GET /health/ready``   — 就绪探针（Kubernetes readiness probe）
+- ``GET /version``        — 版本信息
+- ``GET /config/summary`` — 配置摘要（脱敏）
 """
 
 from __future__ import annotations
 
-import sys
-import time
-from datetime import datetime
 from typing import Any
 
-import fastapi
 from fastapi import APIRouter, Request
 
-from src.core.config import settings
-from src.core.logger import logger
-from src.schemas.common import HealthResponse, HealthStatus, VersionResponse, VersionInfo
+from src.api.response import success_response
+from src.schemas.health import HealthResponse, VersionResponse
+from src.services.health_service import get_health_service
 
 
-router = APIRouter()
+router = APIRouter(tags=["健康检查"])
 
 
-@router.get("/health", response_model=HealthResponse, tags=["health"])
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="健康检查",
+    description="检查系统各组件的健康状态，包括数据库连接、Milvus 连接、API 配置。",
+)
 async def health_check(request: Request) -> HealthResponse:
     """
     健康检查接口
@@ -34,37 +47,37 @@ async def health_check(request: Request) -> HealthResponse:
     - 应用状态
 
     Returns:
-        HealthResponse: 健康状态响应
+        HealthResponse: 健康状态响应，包含整体状态和各组件详情
     """
-    checks: dict[str, HealthStatus] = {}
-    overall_status = "healthy"
+    service = get_health_service()
+    data = await service.check_health()
 
-    # 检查数据库
-    db_status = await _check_database()
-    checks["database"] = db_status
-    if db_status.status != "healthy":
-        overall_status = "degraded"
+    from src.schemas.health import HealthStatus
 
-    # 检查 Milvus
-    milvus_status = await _check_milvus()
-    checks["milvus"] = milvus_status
-    if milvus_status.status != "healthy":
-        overall_status = "degraded"
-
-    # 检查 API 配置
-    api_status = _check_api_config()
-    checks["api_config"] = api_status
-
-    return HealthResponse(
-        status=overall_status,
-        version=settings.APP_VERSION,
-        timestamp=datetime.utcnow(),
-        checks=checks,
+    return success_response(
+        data=HealthResponse(
+            status=data["status"],
+            version=data["version"],
+            timestamp=data["timestamp"],
+            checks={
+                k: HealthStatus(
+                    status=v["status"],
+                    latency_ms=v.get("latency_ms"),
+                    message=v.get("message"),
+                )
+                for k, v in data["checks"].items()
+            },
+        ).model_dump(mode="json"),
+        request=request,
     )
 
 
-@router.get("/health/live", tags=["health"])
-async def liveness_probe() -> dict[str, str]:
+@router.get(
+    "/health/live",
+    summary="存活探针",
+    description="用于 Kubernetes liveness probe，只检查应用是否存活，不检查依赖。",
+)
+async def liveness_probe(request: Request) -> Any:
     """
     存活探针
 
@@ -72,13 +85,17 @@ async def liveness_probe() -> dict[str, str]:
     只检查应用是否存活，不检查依赖。
 
     Returns:
-        {"status": "alive"}
+        {"code": 200, "message": "success", "data": {"status": "alive"}}
     """
-    return {"status": "alive"}
+    return success_response(data={"status": "alive"}, request=request)
 
 
-@router.get("/health/ready", tags=["health"])
-async def readiness_probe() -> dict[str, Any]:
+@router.get(
+    "/health/ready",
+    summary="就绪探针",
+    description="用于 Kubernetes readiness probe，检查所有依赖是否就绪。",
+)
+async def readiness_probe(request: Request) -> Any:
     """
     就绪探针
 
@@ -88,25 +105,23 @@ async def readiness_probe() -> dict[str, Any]:
     Returns:
         就绪状态
     """
-    # 快速检查数据库
-    try:
-        db_status = await _check_database()
-        if db_status.status != "healthy":
-            return {
-                "ready": False,
-                "reason": "Database not ready",
-            }
-    except Exception as e:
-        return {
-            "ready": False,
-            "reason": f"Database check failed: {e}",
-        }
+    service = get_health_service()
+    data = await service.check_health()
 
-    return {"ready": True}
+    ready = data["status"] == "healthy"
+    return success_response(
+        data={"ready": ready},
+        request=request,
+    )
 
 
-@router.get("/version", response_model=VersionResponse, tags=["health"])
-async def get_version() -> VersionResponse:
+@router.get(
+    "/version",
+    response_model=VersionResponse,
+    summary="版本信息",
+    description="返回应用、Python 运行时和主要依赖的版本信息。",
+)
+async def get_version(request: Request) -> Any:
     """
     获取版本信息
 
@@ -115,20 +130,17 @@ async def get_version() -> VersionResponse:
     Returns:
         VersionResponse: 版本信息
     """
-    return VersionResponse(
-        app=VersionInfo(
-            version=settings.APP_VERSION,
-            name=settings.APP_NAME,
-            description="多模态智能助手",
-        ),
-        python=sys.version.split()[0],
-        fastapi=fastapi.__version__,
-        environment=settings.ENVIRONMENT,
-    )
+    service = get_health_service()
+    data = service.get_version_info()
+    return success_response(data=data, request=request)
 
 
-@router.get("/config/summary", tags=["health"])
-async def get_config_summary() -> dict[str, Any]:
+@router.get(
+    "/config/summary",
+    summary="配置摘要",
+    description="返回配置信息（敏感字段已脱敏），仅用于运维排查。",
+)
+async def get_config_summary(request: Request) -> Any:
     """
     获取配置摘要（脱敏）
 
@@ -137,81 +149,6 @@ async def get_config_summary() -> dict[str, Any]:
     Returns:
         配置摘要
     """
-    return settings.get_config_summary()
-
-
-# ============ 内部检查函数 ============
-
-async def _check_database() -> HealthStatus:
-    """检查数据库连接"""
-    start_time = time.perf_counter()
-    try:
-        from src.infras.database import async_engine
-
-        async with async_engine().connect() as conn:
-            from sqlalchemy import text
-            await conn.execute(text("SELECT 1"))
-
-        latency_ms = (time.perf_counter() - start_time) * 1000
-        return HealthStatus(
-            status="healthy",
-            latency_ms=latency_ms,
-            message="Connected",
-        )
-    except Exception as e:
-        latency_ms = (time.perf_counter() - start_time) * 1000
-        logger.warning(f"Database health check failed: {e}")
-        return HealthStatus(
-            status="unhealthy",
-            latency_ms=latency_ms,
-            message=str(e),
-        )
-
-
-async def _check_milvus() -> HealthStatus:
-    """检查 Milvus 连接"""
-    start_time = time.perf_counter()
-    try:
-        from src.infras import get_vector_store_provider
-
-        client = get_vector_store_provider()
-        stats = client.get_stats()
-
-        latency_ms = (time.perf_counter() - start_time) * 1000
-        if stats.get("connected"):
-            return HealthStatus(
-                status="healthy",
-                latency_ms=latency_ms,
-                message=f"Connected, {stats.get('collections_count', 0)} collections",
-            )
-        else:
-            return HealthStatus(
-                status="unhealthy",
-                latency_ms=latency_ms,
-                message=stats.get("error", "Connection failed"),
-            )
-    except Exception as e:
-        latency_ms = (time.perf_counter() - start_time) * 1000
-        logger.warning(f"Milvus health check failed: {e}")
-        return HealthStatus(
-            status="unhealthy",
-            latency_ms=latency_ms,
-            message=str(e),
-        )
-
-
-def _check_api_config() -> HealthStatus:
-    """检查 API 配置"""
-    providers = settings.get_available_providers()
-    available_count = sum(1 for p in providers if p["available"])
-
-    if available_count > 0:
-        return HealthStatus(
-            status="healthy",
-            message=f"{available_count}/{len(providers)} AI providers configured",
-        )
-    else:
-        return HealthStatus(
-            status="degraded",
-            message="No AI providers configured",
-        )
+    service = get_health_service()
+    data = service.get_config_summary()
+    return success_response(data=data, request=request)

@@ -11,12 +11,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from src.app.routers.chat import (
+from src.api.v1.conversations import (
+    _is_current_model_query,
+    _resolve_provider_model,
+)
+from src.schemas.chat import (
     ChatMessage,
     ChatRequest,
     ChatResponse,
-    _is_current_model_query,
-    _resolve_provider_model,
     ProviderInfo,
     ProvidersResponse,
 )
@@ -103,14 +105,14 @@ class TestPydanticModels:
 
 
 class TestGetProvidersEndpoint:
-    """GET /api/chat/providers 测试"""
+    """GET /api/v1/conversations/providers 测试"""
 
     def test_returns_providers_list(self, fake_settings):
         with patch("src.config.settings.settings", fake_settings):
             from src.app.main import create_app
             app = create_app()
             test_client = TestClient(app)
-            resp = test_client.get("/api/chat/providers")
+            resp = test_client.get("/api/v1/conversations/providers")
         assert resp.status_code == 200
         data = resp.json()
         assert "providers" in data

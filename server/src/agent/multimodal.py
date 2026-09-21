@@ -46,7 +46,7 @@ from src.core.config import Settings, settings
 from src.core.logger import logger
 
 if TYPE_CHECKING:
-    from src.schemas.enum import ModelProvider
+    from src.constants.enums import ModelProvider
 
 
 def _configure_ffmpeg_binary() -> None:
@@ -158,7 +158,7 @@ class MultimodalModelClient:
             模型回答文本
         """
         # 延迟导入避免循环依赖
-        from src.schemas.enum import ModelProvider
+        from src.constants.enums import ModelProvider
         from src.agent.model import build_chat_model
 
         logger.debug(
@@ -324,7 +324,7 @@ class MultimodalModelClient:
         Yields:
             每个 token/chunk 的文本片段
         """
-        from src.schemas.enum import ModelProvider
+        from src.constants.enums import ModelProvider
         from src.agent.model import build_chat_model
 
         def _is_retriable_error(exc: Exception) -> bool:
@@ -417,7 +417,7 @@ class MultimodalModelClient:
         is_retriable_error: callable = None,
     ) -> AsyncGenerator[str, None]:
         """流式调用模型，带回退"""
-        from src.schemas.enum import ModelProvider
+        from src.constants.enums import ModelProvider
         from src.agent.model import build_chat_model
 
         if is_retriable_error is None:

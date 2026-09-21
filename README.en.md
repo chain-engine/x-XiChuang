@@ -317,7 +317,7 @@ Visit http://localhost:8000
 **Send Message**
 
 ```bash
-POST /api/chat/message
+POST /api/conversations/message
 Content-Type: application/json
 
 {
@@ -330,7 +330,7 @@ Content-Type: application/json
 **Upload File**
 
 ```bash
-POST /api/chat/upload
+POST /api/conversations/upload
 Content-Type: multipart/form-data
 
 session_id: test
@@ -342,7 +342,7 @@ file: [file]
 **Get Available Providers**
 
 ```bash
-GET /api/chat/providers
+GET /api/conversations/providers
 
 Response:
 {

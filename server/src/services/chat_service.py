@@ -302,13 +302,7 @@ class ChatService(IChatService):
             yield chunk
 
 
-# 全局服务实例
-_chat_service: Optional[ChatService] = None
-
-
 def get_chat_service() -> ChatService:
-    """获取全局对话服务实例"""
-    global _chat_service
-    if _chat_service is None:
-        _chat_service = ChatService()
-    return _chat_service
+    """从 IOC 容器获取全局对话服务实例"""
+    from src.core.container import Container
+    return Container.get_instance().resolve(IChatService)

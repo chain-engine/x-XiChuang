@@ -6,7 +6,23 @@
 所有枚举类均继承自 BaseEnum 基类。
 """
 
+from __future__ import annotations
+
+from enum import Enum
+
 from .base import BaseEnum
+
+
+class Lifecycle(Enum):
+    """组件生命周期枚举。
+
+    Attributes:
+        SINGLETON: 单例模式，全局只创建一个实例
+        TRANSIENT: 多例模式，每次解析都创建新实例
+    """
+
+    SINGLETON = "singleton"
+    TRANSIENT = "transient"
 
 
 class ResponseCode(BaseEnum):
@@ -70,19 +86,17 @@ class MediaType(BaseEnum):
     AUTO = ("auto", "Auto Detect")
 
 
-class ModelProvider(BaseEnum):
+class ModelProvider(str, Enum):
     """
-    AI 模型提供商枚举
-
-    定义支持的 AI 模型提供商。
+    支持的模型提供商枚举
     """
 
-    TONGYI = ("tongyi", "千问")
-    DEEPSEEK = ("deepseek", "DeepSeek")
-    GLM = ("glm", "GLM")
-    DOUBAO = ("doubao", "豆包")
-    KIMI = ("kimi", "Kimi")
-    MOCK = ("mock", "Mock")
+    tongyi = "tongyi"      # 千问（默认）
+    deepseek = "deepseek"  # DeepSeek
+    glm = "glm"            # 智谱/GLM
+    doubao = "doubao"      # 火山/豆包
+    kimi = "kimi"          # 月之暗面/Kimi
+    mock = "mock"          # 本地Mock（用于测试）
 
 
 class TaskStatus(BaseEnum):

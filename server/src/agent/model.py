@@ -13,7 +13,7 @@ from langchain_openai import ChatOpenAI
 
 from src.core.config import Settings, settings
 from src.core.logger import logger
-from src.schemas.enum import ModelProvider
+from src.constants.enums import ModelProvider
 
 
 def build_chat_model(
