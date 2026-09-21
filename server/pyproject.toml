@@ -1,5 +1,5 @@
 [project]
-name = "西窗（XiChuang）"
+name = "x-XiChuang"
 version = "0.1.0"
 description = "一款基于 LangChain + LangGraph + FastAPI 构建的多模态智能交互助手（A Production-Grade intelligent interactive assistant based on multimodal large language models）"
 authors = [

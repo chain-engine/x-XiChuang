@@ -252,9 +252,14 @@ def _setup_frontend_routes(app: FastAPI) -> None:
 app = create_app()
 
 
-# ============ 直接运行入口 ============
+# ============ CLI 入口函数 ============
 
-if __name__ == "__main__":
+def run() -> None:
+    """CLI 入口函数，供 pyproject.toml [project.scripts] 注册使用。
+
+    Usage:
+        uv run XiChuang
+    """
     import uvicorn
 
     uvicorn.run(
@@ -264,3 +269,9 @@ if __name__ == "__main__":
         reload=settings.DEBUG,
         log_level=settings.LOG_LEVEL.lower(),
     )
+
+
+# ============ 直接运行入口 ============
+
+if __name__ == "__main__":
+    run()

@@ -199,47 +199,6 @@ XiChuang is built on FastAPI and provides complete OpenAPI specification documen
 
 ---
 
-## Storage Configuration
-
-XiChuang supports two file storage modes, switchable via the `STORAGE_TYPE` environment variable:
-
-### Local File Storage (Default)
-
-Suitable for development environments and small-scale deployments. Files are stored on the server's local disk.
-
-```bash
-STORAGE_TYPE=local
-```
-
-- Storage path: `server/statics/` directory organized by type (images, audio, videos, files)
-- Access method: Direct access via FastAPI static file service
-
-### Aliyun OSS Object Storage
-
-Suitable for production environments, providing high-availability and high-concurrency file storage capabilities.
-
-```bash
-STORAGE_TYPE=oss
-ALIYUN_OSS_ACCESS_KEY_ID=your-access-key-id
-ALIYUN_OSS_ACCESS_KEY_SECRET=your-access-key-secret
-ALIYUN_OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
-ALIYUN_OSS_BUCKET_NAME=your-bucket-name
-```
-
-### Database Storage
-
-| Storage Type | Technology | Purpose | Configuration |
-|--------------|------------|---------|---------------|
-| Relational Data | MySQL 8.0+ | Sessions, messages, user data | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` |
-| Vector Data | Milvus 2.4+ | Knowledge base embedding vectors | `MILVUS_HOST`, `MILVUS_PORT` |
-
-> **Notes**:
-> - Both MySQL and Milvus can be deployed with one click via Docker Compose without manual installation
-> - For production, it is recommended to enable master-slave replication for MySQL and cluster mode for Milvus
-> - The knowledge base index only includes the root `README.md` and `.md` files under the `data/knowledge/` directory. Web chat history is not automatically indexed
-
----
-
 ## License
 
 This project is released under the [MIT License](LICENSE).

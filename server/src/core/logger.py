@@ -56,7 +56,12 @@ def _mask_headers(headers: dict[str, str]) -> dict[str, str]:
 
 
 def _json_formatter(record: dict[str, Any]) -> str:
-    """JSON 格式化器（文件输出）"""
+    """JSON 格式化器（文件输出）
+
+    loguru 的 format callable 返回值会被再次当作 str.format() 模板处理，
+    因此不能直接返回含花括号的 JSON 字符串。
+    解法：把 JSON 结果塞进 record["message"]，返回简单的 "{message}" 模板。
+    """
     from src.core.config import settings
 
     record["extra"].setdefault("request_id", None)
@@ -77,7 +82,8 @@ def _json_formatter(record: dict[str, Any]) -> str:
     if record["exception"]:
         log_record["exception"] = str(record["exception"])
 
-    return json.dumps(log_record, ensure_ascii=False) + "\n"
+    record["message"] = json.dumps(log_record, ensure_ascii=False) + "\n"
+    return "{message}"
 
 
 def _console_format(record: dict[str, Any]) -> str:
@@ -98,7 +104,8 @@ def _console_format(record: dict[str, Any]) -> str:
     prefix = f"{level_color}{ts} | {record['level'].name:<8}{reset}"
     location = f"{record['name']}:{record['function']}:{record['line']}"
     req = f" [rid:{record['extra']['request_id']}]" if record["extra"]["request_id"] else ""
-    return f"{prefix} | {location}{req} - {record['message']}\n"
+    record["message"] = f"{prefix} | {location}{req} - {record['message']}\n"
+    return "{message}"
 
 
 def _json_serializer(obj: Any) -> str:

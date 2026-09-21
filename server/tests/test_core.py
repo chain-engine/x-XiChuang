@@ -9,11 +9,9 @@ from src.core.config import Settings
 from src.api.response import error_response, success_response
 from src.core.exceptions import (
     AppException,
-    BaseException,
     BusinessException,
     BusinessError,
     SystemException,
-    SystemError,
     NotFoundError,
     ValidationError,
 )

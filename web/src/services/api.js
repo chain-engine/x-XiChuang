@@ -18,7 +18,11 @@ export async function sendMessage(formData) {
     throw new Error(error || 'Request failed')
   }
 
-  return res.json()
+  const json = await res.json()
+  if (json && json.data) {
+    return json.data
+  }
+  return json
 }
 
 /**
@@ -140,7 +144,17 @@ export async function getConversations() {
     throw new Error(error || 'Request failed')
   }
 
-  return res.json()
+  const json = await res.json()
+  // 后端返回分页格式 { code, data: { items, total, page, page_size } }
+  // 需要提取 items 数组
+  if (json && json.data && Array.isArray(json.data.items)) {
+    return json.data.items
+  }
+  // 兼容直接返回数组的情况
+  if (Array.isArray(json)) {
+    return json
+  }
+  return []
 }
 
 /**
@@ -165,7 +179,12 @@ export async function createConversation(data = {}) {
     throw new Error(error || 'Request failed')
   }
 
-  return res.json()
+  const json = await res.json()
+  // 后端返回 { code, data: { id, title, ... } }
+  if (json && json.data) {
+    return json.data
+  }
+  return json
 }
 
 /**
@@ -181,7 +200,12 @@ export async function getConversation(conversationId) {
     throw new Error(error || 'Request failed')
   }
 
-  return res.json()
+  const json = await res.json()
+  // 后端返回 { code, data: { id, title, messages, ... } }
+  if (json && json.data) {
+    return json.data
+  }
+  return json
 }
 
 /**
@@ -191,8 +215,9 @@ export async function getConversation(conversationId) {
  * @returns {Promise<{id: string, title: string}>}
  */
 export async function updateConversation(conversationId, data) {
-  const res = await fetch(`${CONVERSATIONS_URL}/${conversationId}`, {
-    method: 'PUT',
+  // 后端使用 POST /{id}/update 而不是 PUT
+  const res = await fetch(`${CONVERSATIONS_URL}/${conversationId}/update`, {
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
@@ -204,7 +229,11 @@ export async function updateConversation(conversationId, data) {
     throw new Error(error || 'Request failed')
   }
 
-  return res.json()
+  const json = await res.json()
+  if (json && json.data) {
+    return json.data
+  }
+  return json
 }
 
 /**
@@ -213,8 +242,9 @@ export async function updateConversation(conversationId, data) {
  * @returns {Promise<{success: boolean, message: string}>}
  */
 export async function deleteConversation(conversationId) {
-  const res = await fetch(`${CONVERSATIONS_URL}/${conversationId}`, {
-    method: 'DELETE'
+  // 后端使用 POST /{id}/delete 而不是 DELETE
+  const res = await fetch(`${CONVERSATIONS_URL}/${conversationId}/delete`, {
+    method: 'POST'
   })
 
   if (!res.ok) {
@@ -222,7 +252,11 @@ export async function deleteConversation(conversationId) {
     throw new Error(error || 'Request failed')
   }
 
-  return res.json()
+  const json = await res.json()
+  if (json && json.data) {
+    return json.data
+  }
+  return json
 }
 
 /**
@@ -245,5 +279,9 @@ export async function saveMessages(conversationId, messages) {
     throw new Error(error || 'Request failed')
   }
 
-  return res.json()
+  const json = await res.json()
+  if (json && json.data) {
+    return json.data
+  }
+  return json
 }

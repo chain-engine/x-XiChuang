@@ -24,9 +24,6 @@ from .conversation import (
     MessageResponse,
     SaveMessagesRequest,
 )
-from .common import (
-    BaseQuery,
-)
 from .health import (
     HealthResponse,
     HealthStatus,
@@ -63,7 +60,6 @@ __all__ = [
     "MessageResponse",
     "SaveMessagesRequest",
     # Common schemas
-    "BaseQuery",
     # Health schemas
     "HealthResponse",
     "HealthStatus",

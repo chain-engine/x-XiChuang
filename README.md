@@ -16,9 +16,20 @@
 
 ## 项目简介
 
-**西窗（XiChuang）** 是一款基于 LangChain + LangGraph + FastAPI 构建的多模态智能交互助手，取自李商隐名句「何当共剪西窗烛，却话巴山夜雨时」。
+**西窗（XiChuang）** 是一款基于 **LangChain + LangGraph + FastAPI** 构建的多模态智能交互助手。
 
-项目支持文本、语音、图片、音频、视频等多种模态输入，内置千问、DeepSeek、GLM、豆包、Kimi 等主流大语言模型，通过 LangGraph 状态图编排实现检索增强生成（RAG）与智能对话。适合作为多模态 AI 助手的生产级开发框架，可用于智能客服、知识问答、内容创作等业务场景。
+**核心价值**：
+
+- **多模态交互**：支持文本对话、语音录制、图片/音频/视频文件上传，覆盖主流人机交互场景
+- **多模型适配**：内置通义千问、DeepSeek、智谱 GLM、豆包、Kimi 五大模型提供商，支持动态切换与故障兜底
+- **LangGraph 编排**：基于状态图的对话流程编排（检索 → 生成 → 摘要），保障复杂对话链路的可观测性与可控性
+- **智能记忆管理**：会话记忆持久化 + LRU 缓存 + 滚动摘要生成，兼顾上下文连贯性与资源效率
+- **RAG 知识增强**：基于 Milvus 向量数据库的检索增强生成，支持文档向量化与语义搜索
+- **工程化开箱即用**：IOC 依赖注入、统一异常体系、结构化日志、中间件链、健康检查探针等生产级基础设施
+
+**适配场景**：
+
+智能客服、知识问答、多模态内容分析、AI 应用原型验证、LangChain/LangGraph 技术学习与实践。
 
 ---
 
@@ -196,47 +207,6 @@ x-XiChuang/
 | `GET` | `/api/v1/health/ready` | 就绪检查 |
 
 > **权限控制**：当前版本 API 为开放访问模式，未启用认证机制。生产环境建议通过反向代理（如 Nginx）或 API 网关添加认证层。
-
----
-
-## 存储配置说明
-
-西窗支持两种文件存储模式，通过环境变量 `STORAGE_TYPE` 切换：
-
-### 本地文件存储（默认）
-
-适用于开发环境和小规模部署，文件存储在服务器本地磁盘。
-
-```bash
-STORAGE_TYPE=local
-```
-
-- 存储路径：`server/statics/` 目录下按类型分类（images、audio、videos、files）
-- 访问方式：通过 FastAPI 静态文件服务直接访问
-
-### 阿里云 OSS 对象存储
-
-适用于生产环境，提供高可用、高并发的文件存储能力。
-
-```bash
-STORAGE_TYPE=oss
-ALIYUN_OSS_ACCESS_KEY_ID=your-access-key-id
-ALIYUN_OSS_ACCESS_KEY_SECRET=your-access-key-secret
-ALIYUN_OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
-ALIYUN_OSS_BUCKET_NAME=your-bucket-name
-```
-
-### 数据库存储
-
-| 存储类型 | 技术 | 用途 | 配置项 |
-|----------|------|------|--------|
-| 关系型数据 | MySQL 8.0+ | 会话、消息、用户数据 | `MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE` |
-| 向量数据 | Milvus 2.4+ | 知识库 Embedding 向量 | `MILVUS_HOST`、`MILVUS_PORT` |
-
-> **注意事项**：
-> - MySQL 和 Milvus 均可通过 Docker Compose 一键部署，无需手动安装
-> - 生产环境建议对 MySQL 启用主从复制，对 Milvus 启用集群模式
-> - 知识库索引仅包含根目录 `README.md` 和 `data/knowledge/` 目录下的 `.md` 文件，Web 聊天记录不会自动索引
 
 ---
 

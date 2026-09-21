@@ -9,10 +9,7 @@ from .config import settings
 from .exceptions import (
     AppException,
     BusinessException,
-    SystemException,
-    BusinessError,
-    SystemError,
-    register_exception_handlers,
+    SystemException
 )
 from .logger import logger, setup_logging
 
@@ -23,8 +20,4 @@ __all__ = [
     "AppException",
     "BusinessException",
     "SystemException",
-    "register_exception_handlers",
-    # 向后兼容别名
-    "BusinessError",
-    "SystemError",
 ]

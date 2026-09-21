@@ -63,7 +63,10 @@ cd x-XiChuang/server
 
 ```bash
 # 安装 uv（如尚未安装）
-pip install uv
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# Linux / macOS
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 创建虚拟环境
 uv venv
@@ -179,7 +182,7 @@ uv run ruff check --fix .
 uv run mypy .
 
 # 依赖漏洞扫描
-pip install pip-audit && pip-audit
+uvx pip-audit
 ```
 
 ### 7. 使用方法示例

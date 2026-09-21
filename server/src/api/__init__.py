@@ -6,11 +6,10 @@ API 路由模块
 """
 
 from .response import error_response, paginated_response, success_response
-from .router import api_router, api_v1_router
+from .router import api_router
 
 __all__ = [
     "api_router",
-    "api_v1_router",
     "success_response",
     "error_response",
     "paginated_response",

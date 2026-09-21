@@ -140,7 +140,7 @@ class MilvusVectorStoreProvider(VectorStoreProvider):
                 logger.info(f"Milvus client connected to {self._host}:{self._port}")
 
             except ImportError:
-                logger.error("pymilvus is not installed. Run: pip install pymilvus")
+                logger.error("pymilvus is not installed. Run: uv pip install pymilvus")
                 raise RuntimeError("pymilvus is not installed")
             except Exception as e:
                 logger.error(f"Failed to connect to Milvus: {e}")
@@ -169,7 +169,7 @@ class MilvusVectorStoreProvider(VectorStoreProvider):
                 raise RuntimeError(f"Embedding API error: {response.message}")
 
         except ImportError:
-            logger.error("dashscope is not installed. Run: pip install dashscope")
+            logger.error("dashscope is not installed. Run: uv pip install dashscope")
             raise RuntimeError("dashscope is not installed")
         except Exception as e:
             logger.error(f"Failed to generate embedding: {e}")
